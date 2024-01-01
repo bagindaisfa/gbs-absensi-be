@@ -491,6 +491,43 @@ app.get("/shiftkaryawan", (req, res) => {
   );
 });
 
+app.get("/downloadjadwal", (req, res) => {
+  let { month, id_lokasi } = req.query;
+  db.query(
+    `SELECT 
+          shift_karyawan.id_karyawan,
+          master_karyawan.nama,
+          CASE
+            WHEN master_shift.shift = 0
+              THEN 'OFF'
+            ELSE master_shift.shift 
+          END AS shift,
+          master_shift.jam_masuk,
+          master_shift.jam_keluar,
+          shift_karyawan.start_date,
+          shift_karyawan.end_date
+      FROM shift_karyawan
+      LEFT JOIN master_karyawan ON shift_karyawan.id_karyawan = master_karyawan.id AND shift_karyawan.id_lokasi = master_karyawan.id_lokasi
+      LEFT JOIN master_shift ON shift_karyawan.id_shift = master_shift.id AND shift_karyawan.id_lokasi = master_shift.id_lokasi
+      WHERE shift_karyawan.id_lokasi = ${id_lokasi}
+      AND (
+          YEAR(STR_TO_DATE('${month}', '%Y-%m')) = YEAR(shift_karyawan.start_date)
+          AND MONTH(STR_TO_DATE('${month}', '%Y-%m')) = MONTH(shift_karyawan.start_date)
+      ) OR (
+          YEAR(STR_TO_DATE('${month}', '%Y-%m')) = YEAR(shift_karyawan.end_date)
+          AND MONTH(STR_TO_DATE('${month}', '%Y-%m')) = MONTH(shift_karyawan.end_date)
+      );`,
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching jadwal:", err);
+        res.status(500).json({ error: "Internal server error" });
+        return;
+      }
+      res.json({ jadwal: results });
+    }
+  );
+});
+
 app.get("/users", (req, res) => {
   db.query("SELECT * FROM users", (err, results) => {
     if (err) {
