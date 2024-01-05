@@ -60,9 +60,9 @@ app.get("/absensi", (req, res) => {
                   ELSE absensi.status
                   END AS status,
                   CASE
-                      WHEN absensi.status = 'Hadir' AND ABS(TIME_TO_SEC(TIMEDIFF(TIME(absensi.timestamp), master_shift.jam_masuk))) <= (master_lokasi.toleransi * 60)
+                      WHEN absensi.status = 'Hadir' AND TIME(absensi.timestamp) <= ADDTIME(master_shift.jam_masuk, SEC_TO_TIME(master_lokasi.toleransi * 60)) 
                           THEN 'Tepat Waktu'
-                      WHEN absensi.status = 'Hadir' AND ABS(TIME_TO_SEC(TIMEDIFF(TIME(absensi.timestamp), master_shift.jam_masuk))) > (master_lokasi.toleransi * 60)
+                      WHEN absensi.status = 'Hadir' AND TIME(absensi.timestamp) > ADDTIME(master_shift.jam_masuk, SEC_TO_TIME(master_lokasi.toleransi * 60)) 
                           THEN 'Terlambat'
                       WHEN absensi.status = 'Pulang' AND TIME(absensi.timestamp) >= TIMEDIFF(master_shift.jam_keluar, SEC_TO_TIME(master_lokasi.toleransi * 60)) AND TIME(absensi.timestamp) <= ADDTIME(master_shift.jam_keluar, SEC_TO_TIME(master_lokasi.toleransi * 60))
                           THEN 'Tepat Waktu' 
@@ -154,9 +154,9 @@ app.get("/absensibylokasi", (req, res) => {
                   ELSE absensi.status
                   END AS status,
                   CASE
-                      WHEN absensi.status = 'Hadir' AND ABS(TIME_TO_SEC(TIMEDIFF(TIME(absensi.timestamp), master_shift.jam_masuk))) <= (master_lokasi.toleransi * 60)
+                      WHEN absensi.status = 'Hadir' AND TIME(absensi.timestamp) <= ADDTIME(master_shift.jam_masuk, SEC_TO_TIME(master_lokasi.toleransi * 60)) 
                           THEN 'Tepat Waktu'
-                      WHEN absensi.status = 'Hadir' AND ABS(TIME_TO_SEC(TIMEDIFF(TIME(absensi.timestamp), master_shift.jam_masuk))) > (master_lokasi.toleransi * 60)
+                      WHEN absensi.status = 'Hadir' AND TIME(absensi.timestamp) > ADDTIME(master_shift.jam_masuk, SEC_TO_TIME(master_lokasi.toleransi * 60)) 
                           THEN 'Terlambat'
                       WHEN absensi.status = 'Pulang' AND TIME(absensi.timestamp) >= TIMEDIFF(master_shift.jam_keluar, SEC_TO_TIME(master_lokasi.toleransi * 60)) AND TIME(absensi.timestamp) <= ADDTIME(master_shift.jam_keluar, SEC_TO_TIME(master_lokasi.toleransi * 60))
                           THEN 'Tepat Waktu' 
