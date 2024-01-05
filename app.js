@@ -811,55 +811,93 @@ async function getShift(id_lokasi, id_karyawan, dates) {
 async function getValidateTimeStamp(id_shift) {
   return new Promise((resolve, reject) => {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
     const hours = String(now.getHours()).padStart(2, "0");
     const minutes = String(now.getMinutes()).padStart(2, "0");
     const seconds = String(now.getSeconds()).padStart(2, "0");
+    const formattedDateTime = `${hours}:${minutes}:${seconds}`;
 
-    const formattedDateTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     const sql_query = `
-    SELECT 
-      id, 
-      TIME_TO_SEC(TIMEDIFF(jam_masuk, jam_keluar)) / 60 AS compare_column, 
-      TIME_TO_SEC(TIMEDIFF(jam_masuk, HOUR('${formattedDateTime}'))) / 60 AS minute_difference 
-    FROM master_shift WHERE id=${id_shift};`;
+      SELECT 
+        SUBTIME(master_shift.jam_keluar, SEC_TO_TIME(master_lokasi.toleransi * 60)) AS minimum,
+        ADDTIME(master_shift.jam_keluar, SEC_TO_TIME(master_lokasi.toleransi * 60)) AS maximum
+      FROM master_shift 
+      LEFT JOIN master_lokasi ON master_shift.id_lokasi = master_lokasi.id
+      WHERE master_shift.id = ${id_shift};
+    `;
+
     db.query(sql_query, (err, results) => {
       if (err) {
         console.error("Error fetching lokasi:", err);
         reject(err);
         return;
       }
-      let validate;
-      if (results[0]?.compare_column < 0) {
-        validate = results[0]?.compare_column >= results[0]?.minute_difference;
-      } else {
-        validate = results[0]?.compare_column <= results[0]?.minute_difference;
+
+      const { minimum, maximum } = results[0];
+
+      // Convert string times to Date objects for comparison
+      const minTime = new Date(`1970-01-01T${minimum}`);
+      const maxTime = new Date(`1970-01-01T${maximum}`);
+      const currentDateTime = new Date(`1970-01-01T${formattedDateTime}`);
+
+      let validate = false;
+
+      // Validate if the current time is within the range or greater than maxTime
+      if (
+        currentDateTime >= minTime &&
+        (currentDateTime <= maxTime || currentDateTime > maxTime)
+      ) {
+        validate = true;
       }
+
       resolve(validate);
     });
   });
 }
 
 async function getAbsensi(id_karyawan) {
-  return new Promise((resolve, reject) => {
-    // Create a new Date object
+  try {
+    const results = await fetchAbsensi(formattedDate, id_karyawan);
+
+    if (results.length > 0) {
+      return results;
+    } else {
+      return [];
+    }
+  } catch (err) {
+    console.error("Error in getAbsensi:", err);
+    return [];
+  }
+}
+
+async function getAbsensiBefore(id_karyawan) {
+  try {
     const currentDate = new Date();
-
-    // Get the year, month, and day
     const year = currentDate.getFullYear();
-    const month = ("0" + (currentDate.getMonth() + 1)).slice(-2); // Adding 1 because getMonth() returns a zero-based index
-    const day = ("0" + currentDate.getDate()).slice(-2);
-
-    // Form the date string in YYYY-MM-DD format
+    const month = ("0" + (currentDate.getMonth() + 1)).slice(-2);
+    const day = ("0" + (currentDate.getDate() - 1)).slice(-2);
     const formattedDate = `${year}-${month}-${day}`;
 
+    const results = await fetchAbsensi(formattedDate, id_karyawan);
+    return results;
+  } catch (err) {
+    console.error("Error in getAbsensiBefore:", err);
+    return [];
+  }
+}
+
+// Function to fetch absensi data based on date and id_karyawan
+async function fetchAbsensi(id_karyawan) {
+  return new Promise((resolve, reject) => {
     db.query(
-      `SELECT * FROM absensi WHERE DATE(timestamp)='${formattedDate}' AND id_karyawan=${id_karyawan}`,
+      `SELECT *
+        FROM absensi
+        WHERE id_karyawan=${id_karyawan} AND timestamp >= DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+          AND timestamp < CURDATE()
+        ORDER BY timestamp DESC
+        LIMIT 1;`,
       (err, results) => {
         if (err) {
-          console.error("Error fetching lokasi:", err);
+          console.error("Error fetching absensi:", err);
           reject(err);
           return;
         }
