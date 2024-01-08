@@ -247,34 +247,29 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
       const sqlQuery =
         "INSERT INTO absensi (timestamp,id_karyawan,id_lokasi,id_shift,status,lampiran,foto,lat,`long`,alasan) VALUES (?,?,?,?,?,?,?,?,?,?)";
 
-      if (validate) {
-        db.query(
-          sqlQuery,
-          [
-            now,
-            id_karyawan,
-            id_lokasi,
-            id_shift,
-            status,
-            status.includes("Izin") ? photo : null,
-            status.includes("Izin") ? null : photo,
-            latitude,
-            longitude,
-            alasan,
-          ],
-          (err, results) => {
-            if (err) {
-              console.error("Error insert absensi:", err);
-              res.status(500).json({ error: "Internal server error" });
-              return;
-            }
-            res.json({ absensi: results });
+      db.query(
+        sqlQuery,
+        [
+          now,
+          id_karyawan,
+          id_lokasi,
+          id_shift,
+          status,
+          status.includes("Izin") ? photo : null,
+          status.includes("Izin") ? null : photo,
+          latitude,
+          longitude,
+          alasan,
+        ],
+        (err, results) => {
+          if (err) {
+            console.error("Error insert absensi:", err);
+            res.status(500).json({ error: "Internal server error" });
+            return;
           }
-        );
-      } else {
-        res.status(500).json({ error: "Belum waktunya Pulang!" });
-        return;
-      }
+          res.json({ absensi: results });
+        }
+      );
     } else if (jarak >= 0.05 && (status === "Izin" || status === "Sakit")) {
       const days = JSON.parse(hari_izin);
       if (days.length > 0) {
@@ -856,7 +851,7 @@ async function getValidateTimeStamp(id_shift) {
 
 async function getAbsensi(id_karyawan) {
   try {
-    const results = await fetchAbsensi(formattedDate, id_karyawan);
+    const results = await fetchAbsensi(id_karyawan);
 
     if (results.length > 0) {
       return results;
@@ -865,22 +860,6 @@ async function getAbsensi(id_karyawan) {
     }
   } catch (err) {
     console.error("Error in getAbsensi:", err);
-    return [];
-  }
-}
-
-async function getAbsensiBefore(id_karyawan) {
-  try {
-    const currentDate = new Date();
-    const year = currentDate.getFullYear();
-    const month = ("0" + (currentDate.getMonth() + 1)).slice(-2);
-    const day = ("0" + (currentDate.getDate() - 1)).slice(-2);
-    const formattedDate = `${year}-${month}-${day}`;
-
-    const results = await fetchAbsensi(formattedDate, id_karyawan);
-    return results;
-  } catch (err) {
-    console.error("Error in getAbsensiBefore:", err);
     return [];
   }
 }
@@ -935,14 +914,6 @@ function getDistanceBetweenPoints(lat1, lon1, lat2, lon2) {
   const meters = kilometers * 1000;
 
   return { miles, feet, yards, kilometers, meters };
-}
-
-function deg2rad(deg) {
-  return deg * (Math.PI / 180);
-}
-
-function rad2deg(rad) {
-  return rad * (180 / Math.PI);
 }
 
 function number_format(value, precision) {
