@@ -296,7 +296,7 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
                     hariIzin,
                     id_karyawan,
                     id_lokasi,
-                    id_shift ?? 0,
+                    id_shift ? id_shift : 0,
                     status,
                     photo,
                     null,
