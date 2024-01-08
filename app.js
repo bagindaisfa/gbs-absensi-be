@@ -797,7 +797,7 @@ async function getShift(id_lokasi, id_karyawan, dates) {
           reject(err);
           return;
         }
-        resolve(results[0] ? results[0]?.id_shift : null);
+        resolve(results[0] ? results[0].id_shift : null);
       }
     );
   });
