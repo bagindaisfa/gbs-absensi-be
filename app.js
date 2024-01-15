@@ -18,7 +18,10 @@ app.get("/", function (req, res) {
 
 app.get("/absensi", (req, res) => {
   let { start_date, end_date } = req.query;
-  const query = `SELECT
+  const query = `
+            WITH RankedAbsensi AS (
+                SELECT
+                  ROW_NUMBER() OVER (PARTITION BY master_karyawan.id,absensi.status, DATE(absensi.timestamp) ORDER BY absensi.timestamp DESC) AS RowNum,
                   absensi.id,
                   master_lokasi.nama_lokasi AS lokasi,
                   absensi.foto,
@@ -37,7 +40,7 @@ app.get("/absensi", (req, res) => {
                     ELSE master_shift.shift
                   END AS shift,
                   absensi.lat,
-                  absensi.long,
+                  absensi.long AS lng,
                   CASE DAYNAME(dates.tanggal)
                       WHEN 'Sunday' THEN 'Minggu'
                       WHEN 'Monday' THEN 'Senin'
@@ -98,7 +101,27 @@ app.get("/absensi", (req, res) => {
                 LEFT JOIN shift_karyawan ON master_karyawan.id = shift_karyawan.id_karyawan AND dates.tanggal BETWEEN shift_karyawan.start_date AND shift_karyawan.end_date
                 LEFT JOIN absensi ON absensi.status != 'Pulang' AND shift_karyawan.id_karyawan = absensi.id_karyawan AND DATE(absensi.timestamp) = dates.tanggal OR (master_karyawan.id = absensi.id_karyawan AND absensi.id_shift = 0 AND DATE(absensi.timestamp) = dates.tanggal)
                 LEFT JOIN master_shift ON master_lokasi.id = master_shift.id_lokasi AND absensi.id_shift = master_shift.id
-                ORDER BY dates.tanggal ASC;`;
+                ORDER BY dates.tanggal ASC
+            )
+            SELECT
+              id,
+              lokasi,
+              foto,
+              lampiran,
+              nama,
+              alasan,
+              shift,
+              lat,
+              lng,
+              day_name,
+              tanggal_range,
+              timestamp,
+              status,
+              keterangan
+            FROM
+              RankedAbsensi
+            WHERE
+              RowNum = 1 OR (RowNum > 1 AND status NOT IN ('Hadir', 'Pulang'));`;
 
   db.query(query, (err, results) => {
     if (err) {
@@ -112,7 +135,10 @@ app.get("/absensi", (req, res) => {
 
 app.get("/absensibylokasi", (req, res) => {
   let { start_date, end_date, id_lokasi } = req.query;
-  const query = `SELECT
+  const query = `
+            WITH RankedAbsensi AS (
+                SELECT
+                  ROW_NUMBER() OVER (PARTITION BY master_karyawan.id,absensi.status, DATE(absensi.timestamp) ORDER BY absensi.timestamp DESC) AS RowNum,
                   absensi.id,
                   master_lokasi.nama_lokasi AS lokasi,
                   absensi.foto,
@@ -131,7 +157,7 @@ app.get("/absensibylokasi", (req, res) => {
                     ELSE master_shift.shift
                   END AS shift,
                   absensi.lat,
-                  absensi.long,
+                  absensi.long AS lng,
                   CASE DAYNAME(dates.tanggal)
                       WHEN 'Sunday' THEN 'Minggu'
                       WHEN 'Monday' THEN 'Senin'
@@ -193,7 +219,27 @@ app.get("/absensibylokasi", (req, res) => {
                 LEFT JOIN absensi ON absensi.rowstatus = 1 AND shift_karyawan.id_karyawan = absensi.id_karyawan AND DATE(absensi.timestamp) = dates.tanggal OR (master_karyawan.id = absensi.id_karyawan AND absensi.id_shift = 0 AND DATE(absensi.timestamp) = dates.tanggal)
                 LEFT JOIN master_shift ON master_lokasi.id = master_shift.id_lokasi AND absensi.id_shift = master_shift.id
                 WHERE master_lokasi.id = ${id_lokasi}
-                ORDER BY dates.tanggal, master_karyawan.nama ASC;`;
+                ORDER BY dates.tanggal, master_karyawan.nama ASC
+            )
+            SELECT
+              id,
+              lokasi,
+              foto,
+              lampiran,
+              nama,
+              alasan,
+              shift,
+              lat,
+              lng,
+              day_name,
+              tanggal_range,
+              timestamp,
+              status,
+              keterangan
+            FROM
+              RankedAbsensi
+            WHERE
+              RowNum = 1 OR (RowNum > 1 AND status NOT IN ('Hadir', 'Pulang'));`;
 
   db.query(query, (err, results) => {
     if (err) {
