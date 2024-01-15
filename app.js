@@ -96,7 +96,7 @@ app.get("/absensi", (req, res) => {
                 CROSS JOIN master_karyawan
                 LEFT JOIN master_lokasi ON master_karyawan.id_lokasi = master_lokasi.id
                 LEFT JOIN shift_karyawan ON master_karyawan.id = shift_karyawan.id_karyawan AND dates.tanggal BETWEEN shift_karyawan.start_date AND shift_karyawan.end_date
-                LEFT JOIN absensi ON shift_karyawan.id_karyawan = absensi.id_karyawan AND DATE(absensi.timestamp) = dates.tanggal OR (master_karyawan.id = absensi.id_karyawan AND absensi.id_shift = 0 AND DATE(absensi.timestamp) = dates.tanggal)
+                LEFT JOIN absensi ON absensi.status != 'Pulang' AND shift_karyawan.id_karyawan = absensi.id_karyawan AND DATE(absensi.timestamp) = dates.tanggal OR (master_karyawan.id = absensi.id_karyawan AND absensi.id_shift = 0 AND DATE(absensi.timestamp) = dates.tanggal)
                 LEFT JOIN master_shift ON master_lokasi.id = master_shift.id_lokasi AND absensi.id_shift = master_shift.id
                 ORDER BY dates.tanggal ASC;`;
 
@@ -190,7 +190,7 @@ app.get("/absensibylokasi", (req, res) => {
                 CROSS JOIN master_karyawan
                 LEFT JOIN master_lokasi ON master_karyawan.id_lokasi = master_lokasi.id
                 LEFT JOIN shift_karyawan ON master_karyawan.id = shift_karyawan.id_karyawan AND dates.tanggal BETWEEN shift_karyawan.start_date AND shift_karyawan.end_date
-                LEFT JOIN absensi ON shift_karyawan.id_karyawan = absensi.id_karyawan AND DATE(absensi.timestamp) = dates.tanggal OR (master_karyawan.id = absensi.id_karyawan AND absensi.id_shift = 0 AND DATE(absensi.timestamp) = dates.tanggal)
+                LEFT JOIN absensi ON absensi.rowstatus = 1 AND shift_karyawan.id_karyawan = absensi.id_karyawan AND DATE(absensi.timestamp) = dates.tanggal OR (master_karyawan.id = absensi.id_karyawan AND absensi.id_shift = 0 AND DATE(absensi.timestamp) = dates.tanggal)
                 LEFT JOIN master_shift ON master_lokasi.id = master_shift.id_lokasi AND absensi.id_shift = master_shift.id
                 WHERE master_lokasi.id = ${id_lokasi}
                 ORDER BY dates.tanggal, master_karyawan.nama ASC;`;
@@ -296,7 +296,7 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
                     hariIzin,
                     id_karyawan,
                     id_lokasi,
-                    id_shift ? id_shift : 0,
+                    id_shift ?? 0,
                     status,
                     photo,
                     null,
@@ -797,7 +797,7 @@ async function getShift(id_lokasi, id_karyawan, dates) {
           reject(err);
           return;
         }
-        resolve(results[0] ? results[0].id_shift : null);
+        resolve(results[0]?.id_shift);
       }
     );
   });
@@ -864,6 +864,22 @@ async function getAbsensi(id_karyawan) {
   }
 }
 
+async function getAbsensiBefore(id_karyawan) {
+  try {
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = ("0" + (currentDate.getMonth() + 1)).slice(-2);
+    const day = ("0" + (currentDate.getDate() - 1)).slice(-2);
+    const formattedDate = `${year}-${month}-${day}`;
+
+    const results = await fetchAbsensi(id_karyawan);
+    return results;
+  } catch (err) {
+    console.error("Error in getAbsensiBefore:", err);
+    return [];
+  }
+}
+
 // Function to fetch absensi data based on date and id_karyawan
 async function fetchAbsensi(id_karyawan) {
   return new Promise((resolve, reject) => {
@@ -914,6 +930,14 @@ function getDistanceBetweenPoints(lat1, lon1, lat2, lon2) {
   const meters = kilometers * 1000;
 
   return { miles, feet, yards, kilometers, meters };
+}
+
+function deg2rad(deg) {
+  return deg * (Math.PI / 180);
+}
+
+function rad2deg(rad) {
+  return rad * (180 / Math.PI);
 }
 
 function number_format(value, precision) {

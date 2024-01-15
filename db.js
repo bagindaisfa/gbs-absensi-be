@@ -1,19 +1,26 @@
 // db.js
 const mysql = require("mysql");
 
-const connection = mysql.createConnection({
-  host: "localhost",
-  user: "root", // Replace with your MySQL username
-  password: "B@judit0k02018", // Replace with your MySQL password
-  database: "gbs685_absensi", // Replace with your database name
+const connection = mysql.createPool({
+  host: "195.35.36.220",
+  user: "admin_absen",
+  password: "B@judit0k02018",
+  database: "gbs685_absensi",
+  connectTimeout: 20000,
 });
 
-connection.connect((err) => {
+connection.getConnection((err, conn) => {
   if (err) {
     console.error("Error connecting to database:", err);
     return;
   }
   console.log("Connected to MySQL database!");
+
+  // If you need to perform any initial queries, you can do it here using 'connection'
+
+  // Release the connection back to the pool when done
+  conn.release();
 });
 
+// Export the pool instead of a single connection
 module.exports = connection;
