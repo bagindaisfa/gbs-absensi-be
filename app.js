@@ -383,6 +383,138 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
   }
 });
 
+app.post("/absensimanual", upload.single("foto"), async (req, res) => {
+  try {
+    const {
+      id_karyawan,
+      now,
+      status,
+      latitude,
+      longitude,
+      id_shift,
+      id_lokasi,
+      alasan,
+      hari_izin,
+    } = req.body;
+
+    let validate = true;
+    const dateNow = await getCurrentDate();
+    const { lat, long } = await getLocation(id_lokasi);
+
+    // Calculate distance between the two coordinates
+    const distance = getDistanceBetweenPoints(lat, long, latitude, longitude);
+    const jarak = number_format(distance.kilometers, 2);
+
+    if (status === "Pulang") {
+      if (id_shift === 0) {
+        const idShift = await getShift(id_lokasi, id_karyawan, dateNow);
+        validate = await getValidateTimeStamp(idShift);
+        console.log("idShift:", idShift);
+      } else {
+        validate = await getValidateTimeStamp(id_shift);
+      }
+    }
+
+    // Check if the distance is within 100 meters
+    if (jarak <= 0.05) {
+      let photo = null;
+      if (req.file) {
+        photo = req.file.buffer; // The file buffer containing the photo
+      }
+
+      const sqlQuery =
+        "INSERT INTO absensi (timestamp,id_karyawan,id_lokasi,id_shift,status,lampiran,foto,lat,`long`,alasan) VALUES (?,?,?,?,?,?,?,?,?,?)";
+
+      db.query(
+        sqlQuery,
+        [
+          now,
+          id_karyawan,
+          id_lokasi,
+          id_shift,
+          status,
+          status.includes("Izin") ? photo : null,
+          status.includes("Izin") ? null : photo,
+          latitude,
+          longitude,
+          alasan,
+        ],
+        (err, results) => {
+          if (err) {
+            console.error("Error insert absensi:", err);
+            res.status(500).json({ error: "Internal server error" });
+            return;
+          }
+          res.json({ absensi: results });
+        }
+      );
+    } else if (jarak >= 0.05 && (status === "Izin" || status === "Sakit")) {
+      const days = JSON.parse(hari_izin);
+      if (days.length > 0) {
+        try {
+          for (let i = 0; i < days.length; i++) {
+            const hariIzin = await getIzintDateTime(days[i]);
+            const id_shift = await getShift(id_lokasi, id_karyawan, days[i]);
+            let photo = null;
+            if (req.file) {
+              photo = req.file.buffer; // The file buffer containing the photo
+            }
+
+            const sqlQuery = `
+              INSERT INTO absensi (timestamp, id_karyawan, id_lokasi, id_shift, status, lampiran, foto, alasan) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+
+            // Wrap the database query in a promise for easier handling
+            const executeQuery = () => {
+              return new Promise((resolve, reject) => {
+                db.query(
+                  sqlQuery,
+                  [
+                    hariIzin,
+                    id_karyawan,
+                    id_lokasi,
+                    id_shift ?? 0,
+                    status,
+                    photo,
+                    null,
+                    alasan,
+                  ],
+                  (err, results) => {
+                    if (err) {
+                      console.error("Error insert absensi:", err);
+                      reject(err);
+                    } else {
+                      resolve(results);
+                    }
+                  }
+                );
+              });
+            };
+
+            // Execute the database query
+            await executeQuery();
+          }
+
+          res.json({ message: "Absensi inserted successfully" });
+        } catch (error) {
+          console.error("Error:", error);
+          res.status(500).json({ error: "Internal server error" });
+        }
+      } else {
+        res.json({ message: "No dates provided for absensi" });
+      }
+    } else {
+      console.error("Jarak tidak tepat:", latitude + ", " + longitude);
+      res.status(500).json({
+        error: `Kamu sejauh ${jarak} kilometers dari lokasi yang valid.`,
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err });
+  }
+});
+
 app.get("/karyawan", (req, res) => {
   db.query("SELECT * FROM master_karyawan", (err, results) => {
     if (err) {
