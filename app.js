@@ -30,9 +30,9 @@ app.get("/absensi", (req, res) => {
                   absensi.alasan,
                   CASE
                     WHEN absensi.id_shift = 0 AND absensi.status = 'Hadir'
-                        THEN CONCAT('Backup Shift ', (SELECT shift FROM master_shift WHERE TIME(absensi.timestamp) >= jam_masuk AND id_lokasi = absensi.id_lokasi ORDER BY jam_masuk DESC LIMIT 1))
+                        THEN CONCAT('Backup Shift ', (SELECT shift FROM master_shift WHERE TIME(absensi.timestamp) < jam_masuk AND id_lokasi = absensi.id_lokasi ORDER BY jam_masuk ASC LIMIT 1))
                     WHEN absensi.id_shift = 0 AND absensi.status = 'Pulang'
-                        THEN CONCAT('Backup Shift ', (SELECT shift FROM master_shift WHERE TIME(absensi.timestamp) >= jam_keluar AND TIME(absensi.timestamp) <= jam_keluar AND id_lokasi = absensi.id_lokasi ORDER BY jam_masuk DESC LIMIT 1))
+                        THEN CONCAT('Backup Shift ', (SELECT shift FROM master_shift WHERE TIME(absensi.timestamp) >= jam_masuk AND TIME(absensi.timestamp) <= jam_keluar AND id_lokasi = absensi.id_lokasi ORDER BY jam_masuk DESC LIMIT 1))
                     WHEN absensi.id_shift != 0 AND (absensi.status = 'Izin' OR absensi.status = 'Sakit')
                     	THEN CONCAT(absensi.status, ' Shift ', master_shift.shift)
                     WHEN absensi.id_shift = 0 AND (absensi.status = 'Izin' OR absensi.status = 'Sakit')
@@ -147,9 +147,9 @@ app.get("/absensibylokasi", (req, res) => {
                   absensi.alasan,
                   CASE
                     WHEN absensi.id_shift = 0 AND absensi.status = 'Hadir'
-                        THEN CONCAT('Backup Shift ', (SELECT shift FROM master_shift WHERE TIME(absensi.timestamp) >= jam_masuk AND id_lokasi = absensi.id_lokasi ORDER BY jam_masuk DESC LIMIT 1))
+                        THEN CONCAT('Backup Shift ', (SELECT shift FROM master_shift WHERE TIME(absensi.timestamp) < jam_masuk AND id_lokasi = absensi.id_lokasi ORDER BY jam_masuk ASC LIMIT 1))
                     WHEN absensi.id_shift = 0 AND absensi.status = 'Pulang'
-                        THEN CONCAT('Backup Shift ', (SELECT shift FROM master_shift WHERE TIME(absensi.timestamp) >= jam_keluar AND TIME(absensi.timestamp) <= jam_keluar AND id_lokasi = absensi.id_lokasi ORDER BY jam_masuk DESC LIMIT 1))
+                        THEN CONCAT('Backup Shift ', (SELECT shift FROM master_shift WHERE TIME(absensi.timestamp) >= jam_masuk AND TIME(absensi.timestamp) <= jam_keluar AND id_lokasi = absensi.id_lokasi ORDER BY jam_masuk DESC LIMIT 1))
                     WHEN absensi.id_shift != 0 AND (absensi.status = 'Izin' OR absensi.status = 'Sakit')
                     	THEN CONCAT(absensi.status, ' Shift ', master_shift.shift)
                     WHEN absensi.id_shift = 0 AND (absensi.status = 'Izin' OR absensi.status = 'Sakit')
@@ -652,7 +652,12 @@ app.put("/karyawan", async (req, res) => {
 app.get("/shiftkaryawan", (req, res) => {
   let { id_karyawan, id_lokasi } = req.query;
   db.query(
-    `SELECT * FROM shift_karyawan WHERE id_lokasi=${id_lokasi} AND id_karyawan=${id_karyawan};`,
+    `SELECT 
+        shift_karyawan.*,
+        master_shift.jam_masuk,
+        master_shift.jam_keluar
+    FROM shift_karyawan 
+    LEFT JOIN master_shift ON shift_karyawan.id_shift = master_shift.id WHERE shift_karyawan.id_lokasi=${id_lokasi} AND shift_karyawan.id_karyawan=${id_karyawan};`,
     (err, results) => {
       if (err) {
         console.error("Error fetching shiftkaryawan:", err);
