@@ -258,29 +258,21 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
       status,
       latitude,
       longitude,
-      id_shift,
       id_lokasi,
       alasan,
       hari_izin,
     } = req.body;
 
-    let validate = true;
     const now = await getCurrentDateTime();
-    const dateNow = await getCurrentDate();
     const { lat, long } = await getLocation(id_lokasi);
 
     // Calculate distance between the two coordinates
     const distance = getDistanceBetweenPoints(lat, long, latitude, longitude);
     const jarak = number_format(distance.kilometers, 2);
+    let id_shift = 0;
 
-    if (status === "Pulang") {
-      if (id_shift === 0) {
-        const idShift = await getShift(id_lokasi, id_karyawan, dateNow);
-        validate = await getValidateTimeStamp(idShift);
-        console.log("idShift:", idShift);
-      } else {
-        validate = await getValidateTimeStamp(id_shift);
-      }
+    if (status !== "Backup Hadir" || status !== "Backup Pulang") {
+      id_shift = await getShiftAbsen(id_lokasi, id_karyawan, status);
     }
 
     // Check if the distance is within 100 meters
@@ -300,7 +292,11 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
           id_karyawan,
           id_lokasi,
           id_shift,
-          status,
+          status === "Backup Hadir"
+            ? "Hadir"
+            : status === "Backup Pulang"
+            ? "Pulang"
+            : status,
           status.includes("Izin") ? photo : null,
           status.includes("Izin") ? null : photo,
           latitude,
@@ -983,6 +979,91 @@ async function getShift(id_lokasi, id_karyawan, dates) {
         resolve(results[0]?.id_shift);
       }
     );
+  });
+}
+
+async function getShiftAbsen(id_lokasi, id_karyawan, status) {
+  return new Promise((resolve, reject) => {
+    const now = new Date();
+
+    // Calculate one hour before now
+    const oneHourBefore = new Date(now.getTime() - 60 * 60 * 1000);
+
+    // Calculate one hour after now
+    const oneHourAfter = new Date(now.getTime() + 60 * 60 * 1000);
+
+    // Format the dates as HH:MM:SS
+    const formatTime = (date) => {
+      const hours = date.getHours().toString().padStart(2, "0");
+      const minutes = date.getMinutes().toString().padStart(2, "0");
+      const seconds = date.getSeconds().toString().padStart(2, "0");
+      return `${hours}:${minutes}:${seconds}`;
+    };
+
+    const currentDate = new Date();
+
+    // Subtract one day
+    const yesterday = new Date(currentDate);
+    yesterday.setDate(currentDate.getDate() - 1);
+
+    // Format the date as YYYY-MM-DD
+    const formattedYesterday = `${yesterday.getFullYear()}-${(
+      yesterday.getMonth() + 1
+    )
+      .toString()
+      .padStart(2, "0")}-${yesterday.getDate().toString().padStart(2, "0")}`;
+
+    if (status === "Hadir" || status === "Sakit" || status === "Izin") {
+      db.query(
+        `SELECT 
+        shift_karyawan.*,
+        master_shift.jam_masuk,
+        master_shift.jam_keluar
+        FROM shift_karyawan 
+        LEFT JOIN master_shift ON shift_karyawan.id_shift = master_shift.id
+        WHERE 
+          shift_karyawan.id_lokasi=${id_lokasi} AND shift_karyawan.id_karyawan=${id_karyawan} AND
+            master_shift.jam_masuk BETWEEN '${formatTime(
+              oneHourBefore
+            )}' AND '${formatTime(
+          oneHourAfter
+        )}' AND shift_karyawan.end_date >= '${formattedYesterday}'
+        ORDER BY shift_karyawan.start_date DESC LIMIT 1;`,
+        (err, results) => {
+          if (err) {
+            console.error("Error fetching lokasi:", err);
+            reject(err);
+            return;
+          }
+          resolve(results[0]?.id_shift);
+        }
+      );
+    } else if (status === "Pulang") {
+      db.query(
+        `SELECT 
+        shift_karyawan.*,
+        master_shift.jam_masuk,
+        master_shift.jam_keluar
+        FROM shift_karyawan 
+        LEFT JOIN master_shift ON shift_karyawan.id_shift = master_shift.id
+        WHERE 
+          shift_karyawan.id_lokasi=${id_lokasi} AND shift_karyawan.id_karyawan=${id_karyawan} AND 
+          master_shift.jam_keluar BETWEEN '${formatTime(
+            oneHourBefore
+          )}' AND '${formatTime(
+          oneHourAfter
+        )}' AND shift_karyawan.end_date >= '${formattedYesterday}'
+        ORDER BY shift_karyawan.start_date DESC LIMIT 1;`,
+        (err, results) => {
+          if (err) {
+            console.error("Error fetching lokasi:", err);
+            reject(err);
+            return;
+          }
+          resolve(results[0]?.id_shift);
+        }
+      );
+    }
   });
 }
 
