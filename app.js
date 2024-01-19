@@ -276,7 +276,7 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
     }
 
     // Check if the distance is within 100 meters
-    if (jarak <= 0.05) {
+    if (jarak <= 0.08) {
       let photo = null;
       if (req.file) {
         photo = req.file.buffer; // The file buffer containing the photo
@@ -291,7 +291,7 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
           now,
           id_karyawan,
           id_lokasi,
-          id_shift,
+          id_shift ? id_shift : 0,
           status === "Backup Hadir"
             ? "Hadir"
             : status === "Backup Pulang"
@@ -990,8 +990,15 @@ async function getShiftAbsen(id_lokasi, id_karyawan, status) {
     const oneHourBefore = new Date(now.getTime() - 60 * 60 * 1000);
 
     // Calculate one hour after now
-    const oneHourAfter = new Date(now.getTime() + 60 * 60 * 1000);
-
+    let oneHourAfter = new Date(now.getTime() + 60 * 60 * 1000);
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const seconds = now.getSeconds();
+    if (hours === 23 && oneHourAfter.getHours() === 0) {
+      oneHourAfter = `${hours}:${minutes}:${seconds}`;
+    } else {
+      oneHourAfter = `${oneHourAfter.getHours()}:${minutes}:${seconds}`;
+    }
     // Format the dates as HH:MM:SS
     const formatTime = (date) => {
       const hours = date.getHours().toString().padStart(2, "0");
