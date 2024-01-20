@@ -375,6 +375,7 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
       });
     }
   } catch (err) {
+    console.log(err);
     res.status(500).json({ error: err });
   }
 });
@@ -1032,9 +1033,7 @@ async function getShiftAbsen(id_lokasi, id_karyawan, status) {
           shift_karyawan.id_lokasi=${id_lokasi} AND shift_karyawan.id_karyawan=${id_karyawan} AND
             master_shift.jam_masuk BETWEEN '${formatTime(
               oneHourBefore
-            )}' AND '${formatTime(
-          oneHourAfter
-        )}' AND shift_karyawan.end_date >= '${formattedYesterday}'
+            )}' AND '${oneHourAfter}' AND shift_karyawan.end_date >= '${formattedYesterday}'
         ORDER BY shift_karyawan.start_date DESC LIMIT 1;`,
         (err, results) => {
           if (err) {
@@ -1057,9 +1056,7 @@ async function getShiftAbsen(id_lokasi, id_karyawan, status) {
           shift_karyawan.id_lokasi=${id_lokasi} AND shift_karyawan.id_karyawan=${id_karyawan} AND 
           master_shift.jam_keluar BETWEEN '${formatTime(
             oneHourBefore
-          )}' AND '${formatTime(
-          oneHourAfter
-        )}' AND shift_karyawan.end_date >= '${formattedYesterday}'
+          )}' AND '${oneHourAfter}' AND shift_karyawan.end_date >= '${formattedYesterday}'
         ORDER BY shift_karyawan.start_date DESC LIMIT 1;`,
         (err, results) => {
           if (err) {
