@@ -157,57 +157,10 @@ app.get("/absensibylokasi", (req, res) => {
   const query = `
             SELECT
             A.id_karyawan,
-            E.nama_lokasi AS lokasi,
-            B.nama AS nama_karyawan,
-            CASE
-            	WHEN C.shift = 0 THEN 'Libur'
-            	ELSE C.shift
-            END AS shift,
-            CASE DAYNAME(DATE(D.timestamp))
-              WHEN 'Sunday' THEN 'Minggu'
-              WHEN 'Monday' THEN 'Senin'
-              WHEN 'Tuesday' THEN 'Selasa'
-              WHEN 'Wednesday' THEN 'Rabu'
-              WHEN 'Thursday' THEN 'Kamis'
-              WHEN 'Friday' THEN 'Jumat'
-              WHEN 'Saturday' THEN 'Sabtu'
-              ELSE '-'
-            END AS hari,
-            DATE(D.timestamp) AS tanggal,
-            D.status,
-            CASE
-              WHEN D.status = 'Hadir' AND TIME(D.timestamp) <= ADDTIME(C.jam_masuk, SEC_TO_TIME(E.toleransi * 60)) 
-            	  THEN 'Datang Tepat Waktu'
-              WHEN D.status = 'Hadir' AND TIME(D.timestamp) > ADDTIME(C.jam_masuk, SEC_TO_TIME(E.toleransi * 60)) 
-            	  THEN 'Datang Terlambat'
-              WHEN D.status = 'Hadir' AND D.id_shift = 0
-            	THEN 'Datang Backup'
-              WHEN C.shift = 0
-            	  THEN 'Libur'
-              ELSE 'Tanpa Keterangan'
-            END AS keterangan_kedatangan,
-            CASE
-              WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) >= TIMEDIFF(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60)) AND TIME(D1.timestamp) <= ADDTIME(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
-            	  THEN 'Pulang Tepat Waktu' 
-              WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) > ADDTIME(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
-            	  THEN 'Pulang Lembur'
-              WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) < TIMEDIFF(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
-            	  THEN 'Pulang Lebih Awal'
-              WHEN D1.status = 'Pulang' AND D1.id_shift = 0
-            	THEN 'Pulang Backup'
-              WHEN C.shift = 0
-            	  THEN 'Libur'
-              ELSE 'Tanpa Keterangan'
-            END AS keterangan_pulang,
-            CASE
-              WHEN D.status LIKE '%Izin%' OR D.status LIKE '%Sakit%'
-            	  THEN D.status
-              ELSE '-'
-            END AS keterangan_lain,
-            D.timestamp AS jam_masuk,
-            D1.timestamp AS jam_keluar,
-            D.lampiran,
-            D.alasan
+            D.id AS id_datang,
+            D1.id AS id_pulang,
+            D.foto AS foto_datang,
+            D1.foto AS foto_pulang
             FROM shift_karyawan A
             LEFT JOIN master_karyawan B ON A.id_karyawan = B.id
             LEFT JOIN master_shift C ON A.id_shift = C.id
@@ -235,13 +188,21 @@ app.get("/absensibylokasi", (req, res) => {
     }
     results.forEach((row) => {
       if (row.foto_datang instanceof Buffer) {
-        const filePath = path.join(__dirname, `photo_${row.id_datang}.jpg`);
+        const filePath = path.join(
+          __dirname,
+          "/foto",
+          `photo_${row.id_datang}.jpg`
+        );
         fs.writeFileSync(filePath, row.foto_datang);
         row.foto_datang = filePath;
       }
 
       if (row.foto_pulang instanceof Buffer) {
-        const filePath = path.join(__dirname, `photo_${row.id_pulang}.jpg`);
+        const filePath = path.join(
+          __dirname,
+          "/foto",
+          `photo_${row.id_pulang}.jpg`
+        );
         fs.writeFileSync(filePath, row.foto_pulang);
         row.foto_pulang = filePath;
       }
