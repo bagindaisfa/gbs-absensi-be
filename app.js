@@ -153,7 +153,7 @@ app.get("/absensi", (req, res) => {
 
 app.get("/absensibylokasi", (req, res) => {
   let { start_date, end_date, id_lokasi } = req.query;
-  const photoDirectory = "./foto/";
+  const photoDirectory = "/foto";
   const query = `
             SELECT
             A.id_karyawan,
