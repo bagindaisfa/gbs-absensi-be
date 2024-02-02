@@ -153,7 +153,7 @@ app.get("/absensi", (req, res) => {
 
 app.get("/absensibylokasi", (req, res) => {
   let { start_date, end_date, id_lokasi } = req.query;
-  const photoDirectory = "/foto";
+
   const query = `
             SELECT
             A.id_karyawan,
@@ -236,7 +236,8 @@ app.get("/absensibylokasi", (req, res) => {
     results.forEach((row) => {
       if (row.foto_datang instanceof Buffer) {
         const filePath = path.join(
-          photoDirectory,
+          __dirname,
+          "/foto",
           `photo_${row.id_datang}.jpg`
         );
         fs.writeFileSync(filePath, row.foto_datang);
@@ -245,7 +246,8 @@ app.get("/absensibylokasi", (req, res) => {
 
       if (row.foto_pulang instanceof Buffer) {
         const filePath = path.join(
-          photoDirectory,
+          __dirname,
+          "/foto",
           `photo_${row.id_pulang}.jpg`
         );
         fs.writeFileSync(filePath, row.foto_pulang);
