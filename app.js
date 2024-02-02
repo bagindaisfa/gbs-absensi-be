@@ -2,8 +2,13 @@ var express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const db = require("./db");
+const XLSX = require("xlsx");
+const fs = require("fs");
+const path = require("path");
+
 var app = express();
 var port = process.env.PORT || 3001;
+app.timeout = 600000;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -30,7 +35,7 @@ app.get("/absensi", (req, res) => {
                   absensi.alasan,
                   CASE
                     WHEN absensi.id_shift = 0 AND absensi.status = 'Hadir'
-                        THEN CONCAT('Backup Shift ', (SELECT shift FROM master_shift WHERE TIME(absensi.timestamp) < jam_masuk AND id_lokasi = absensi.id_lokasi ORDER BY jam_masuk ASC LIMIT 1))
+                        THEN CONCAT('Backup Shift ', (SELECT shift FROM master_shift WHERE jam_masuk BETWEEN TIME(absensi.timestamp) - INTERVAL 1 HOUR AND TIME(absensi.timestamp) + INTERVAL 1 HOUR  AND id_lokasi = absensi.id_lokasi ORDER BY jam_masuk ASC LIMIT 1))
                     WHEN absensi.id_shift = 0 AND absensi.status = 'Pulang'
                         THEN CONCAT('Backup Shift ', (SELECT shift FROM master_shift WHERE TIME(absensi.timestamp) >= jam_masuk AND TIME(absensi.timestamp) <= jam_keluar AND id_lokasi = absensi.id_lokasi ORDER BY jam_masuk DESC LIMIT 1))
                     WHEN absensi.id_shift != 0 AND (absensi.status = 'Izin' OR absensi.status = 'Sakit')
@@ -136,110 +141,82 @@ app.get("/absensi", (req, res) => {
 app.get("/absensibylokasi", (req, res) => {
   let { start_date, end_date, id_lokasi } = req.query;
   const query = `
-            WITH RankedAbsensi AS (
-                SELECT
-                  ROW_NUMBER() OVER (PARTITION BY master_karyawan.id,absensi.status, DATE(absensi.timestamp) ORDER BY absensi.timestamp DESC) AS RowNum,
-                  absensi.id,
-                  master_lokasi.nama_lokasi AS lokasi,
-                  absensi.foto,
-                  absensi.lampiran,
-                  master_karyawan.nama,
-                  absensi.alasan,
-                  CASE
-                    WHEN absensi.id_shift = 0 AND absensi.status = 'Hadir'
-                        THEN CONCAT('Backup Shift ', (SELECT shift FROM master_shift WHERE TIME(absensi.timestamp) < jam_masuk AND id_lokasi = absensi.id_lokasi ORDER BY jam_masuk ASC LIMIT 1))
-                    WHEN absensi.id_shift = 0 AND absensi.status = 'Pulang'
-                        THEN CONCAT('Backup Shift ', (SELECT shift FROM master_shift WHERE TIME(absensi.timestamp) >= jam_masuk AND TIME(absensi.timestamp) <= jam_keluar AND id_lokasi = absensi.id_lokasi ORDER BY jam_masuk DESC LIMIT 1))
-                    WHEN absensi.id_shift != 0 AND (absensi.status = 'Izin' OR absensi.status = 'Sakit')
-                    	THEN CONCAT(absensi.status, ' Shift ', master_shift.shift)
-                    WHEN absensi.id_shift = 0 AND (absensi.status = 'Izin' OR absensi.status = 'Sakit')
-                    	THEN CONCAT(absensi.status, ' non-Shift')
-                    ELSE master_shift.shift
-                  END AS shift,
-                  absensi.lat,
-                  absensi.long AS lng,
-                  CASE DAYNAME(dates.tanggal)
-                      WHEN 'Sunday' THEN 'Minggu'
-                      WHEN 'Monday' THEN 'Senin'
-                      WHEN 'Tuesday' THEN 'Selasa'
-                      WHEN 'Wednesday' THEN 'Rabu'
-                      WHEN 'Thursday' THEN 'Kamis'
-                      WHEN 'Friday' THEN 'Jumat'
-                      WHEN 'Saturday' THEN 'Sabtu'
-                      ELSE DAYNAME(dates.tanggal)
-                  END AS day_name,
-                  dates.tanggal AS tanggal_range,
-                  IFNULL(absensi.timestamp, '-') AS timestamp,
-                  CASE
-                  	WHEN absensi.status IS NULL AND (SELECT master_shift.shift FROM shift_karyawan LEFT JOIN master_shift ON shift_karyawan.id_shift=master_shift.id WHERE shift_karyawan.id_lokasi=master_lokasi.id AND shift_karyawan.id_karyawan=master_karyawan.id AND dates.tanggal BETWEEN shift_karyawan.start_date AND shift_karyawan.end_date) = 0
-                    	THEN 'Libur'
-                  WHEN absensi.status IS NULL AND (SELECT master_shift.shift FROM shift_karyawan LEFT JOIN master_shift ON shift_karyawan.id_shift=master_shift.id WHERE shift_karyawan.id_lokasi=master_lokasi.id AND shift_karyawan.id_karyawan=master_karyawan.id AND dates.tanggal BETWEEN shift_karyawan.start_date AND shift_karyawan.end_date) <> 0
-                  	THEN 'Tidak Hadir'
-                  WHEN absensi.status IS NULL AND (SELECT master_shift.shift FROM shift_karyawan LEFT JOIN master_shift ON shift_karyawan.id_shift=master_shift.id WHERE shift_karyawan.id_lokasi=master_lokasi.id AND shift_karyawan.id_karyawan=master_karyawan.id AND dates.tanggal BETWEEN shift_karyawan.start_date AND shift_karyawan.end_date) IS NULL
-                  	THEN 'Tidak Hadir'
-                  ELSE absensi.status
-                  END AS status,
-                  CASE
-                      WHEN absensi.status = 'Hadir' AND TIME(absensi.timestamp) <= ADDTIME(master_shift.jam_masuk, SEC_TO_TIME(master_lokasi.toleransi * 60)) 
-                          THEN 'Tepat Waktu'
-                      WHEN absensi.status = 'Hadir' AND TIME(absensi.timestamp) > ADDTIME(master_shift.jam_masuk, SEC_TO_TIME(master_lokasi.toleransi * 60)) 
-                          THEN 'Terlambat'
-                      WHEN absensi.status = 'Pulang' AND TIME(absensi.timestamp) >= TIMEDIFF(master_shift.jam_keluar, SEC_TO_TIME(master_lokasi.toleransi * 60)) AND TIME(absensi.timestamp) <= ADDTIME(master_shift.jam_keluar, SEC_TO_TIME(master_lokasi.toleransi * 60))
-                          THEN 'Tepat Waktu' 
-                      WHEN absensi.status = 'Pulang' AND TIME(absensi.timestamp) > ADDTIME(master_shift.jam_keluar, SEC_TO_TIME(master_lokasi.toleransi * 60))
-                          THEN 'Lembur'
-                      WHEN absensi.status = 'Pulang' AND TIME(absensi.timestamp) < TIMEDIFF(master_shift.jam_keluar, SEC_TO_TIME(master_lokasi.toleransi * 60))
-                          THEN 'Pulang Lebih Awal'
-                      WHEN absensi.status = 'Hadir' AND absensi.id_shift = 0
-                        THEN 'Backup'
-                      WHEN absensi.status = 'Pulang' AND absensi.id_shift = 0
-                        THEN 'Backup'
-                      WHEN absensi.status LIKE '%Izin%' OR absensi.status LIKE '%Sakit%'
-                          THEN absensi.status
-                      WHEN master_shift.shift = 0
-                          THEN 'Libur'
-                      WHEN absensi.status IS NULL AND (SELECT master_shift.shift FROM shift_karyawan LEFT JOIN master_shift ON shift_karyawan.id_shift=master_shift.id WHERE shift_karyawan.id_lokasi=master_lokasi.id AND shift_karyawan.id_karyawan=master_karyawan.id AND dates.tanggal BETWEEN shift_karyawan.start_date AND shift_karyawan.end_date) = 0
-                    	THEN 'Libur'
-                      ELSE 'Tanpa Keterangan'
-                  END AS keterangan
-                FROM
-                  (
-                      SELECT DATE_ADD('${start_date}', INTERVAL n DAY) AS tanggal
-                      FROM (
-                          SELECT (a.N + b.N * 10) AS n
-                          FROM
-                              (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) a,
-                              (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4) b
-                      ) numbers
-                      WHERE DATE_ADD('${start_date}', INTERVAL n DAY) <= '${end_date}'
-                  ) AS dates
-                CROSS JOIN master_karyawan
-                LEFT JOIN master_lokasi ON master_karyawan.id_lokasi = master_lokasi.id
-                LEFT JOIN shift_karyawan ON master_karyawan.id = shift_karyawan.id_karyawan AND dates.tanggal BETWEEN shift_karyawan.start_date AND shift_karyawan.end_date
-                LEFT JOIN absensi ON absensi.rowstatus = 1 AND shift_karyawan.id_karyawan = absensi.id_karyawan AND DATE(absensi.timestamp) = dates.tanggal OR (master_karyawan.id = absensi.id_karyawan AND absensi.id_shift = 0 AND DATE(absensi.timestamp) = dates.tanggal)
-                LEFT JOIN master_shift ON master_lokasi.id = master_shift.id_lokasi AND absensi.id_shift = master_shift.id
-                WHERE master_lokasi.id = ${id_lokasi}
-                ORDER BY dates.tanggal, master_karyawan.nama ASC
-            )
             SELECT
-              id,
-              lokasi,
-              foto,
-              lampiran,
-              nama,
-              alasan,
-              shift,
-              lat,
-              lng,
-              day_name,
-              tanggal_range,
-              timestamp,
-              status,
-              keterangan
-            FROM
-              RankedAbsensi
-            WHERE
-              RowNum = 1 OR (RowNum > 1 AND status NOT IN ('Hadir', 'Pulang'));`;
+            A.id_karyawan,
+            D.id AS id_datang,
+            D1.id AS id_pulang,
+            D.foto AS foto_datang,
+            D1.foto AS foto_pulang,
+            E.nama_lokasi AS lokasi,
+            B.nama AS nama_karyawan,
+            CASE
+            	WHEN C.shift = 0 THEN 'Libur'
+            	ELSE C.shift
+            END AS shift,
+            CASE DAYNAME(DATE(D.timestamp))
+              WHEN 'Sunday' THEN 'Minggu'
+              WHEN 'Monday' THEN 'Senin'
+              WHEN 'Tuesday' THEN 'Selasa'
+              WHEN 'Wednesday' THEN 'Rabu'
+              WHEN 'Thursday' THEN 'Kamis'
+              WHEN 'Friday' THEN 'Jumat'
+              WHEN 'Saturday' THEN 'Sabtu'
+              ELSE '-'
+            END AS hari,
+            DATE(D.timestamp) AS tanggal,
+            D.status,
+            CASE
+              WHEN D.status = 'Hadir' AND TIME(D.timestamp) <= ADDTIME(C.jam_masuk, SEC_TO_TIME(E.toleransi * 60)) 
+            	  THEN 'Datang Tepat Waktu'
+              WHEN D.status = 'Hadir' AND TIME(D.timestamp) > ADDTIME(C.jam_masuk, SEC_TO_TIME(E.toleransi * 60)) 
+            	  THEN 'Datang Terlambat'
+              WHEN D.status = 'Hadir' AND D.id_shift = 0
+            	THEN 'Datang Backup'
+              WHEN C.shift = 0
+            	  THEN 'Libur'
+              ELSE 'Tanpa Keterangan'
+            END AS keterangan_kedatangan,
+            CASE
+              WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) >= TIMEDIFF(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60)) AND TIME(D1.timestamp) <= ADDTIME(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
+            	  THEN 'Pulang Tepat Waktu' 
+              WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) > ADDTIME(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
+            	  THEN 'Pulang Lembur'
+              WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) < TIMEDIFF(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
+            	  THEN 'Pulang Lebih Awal'
+              WHEN D1.status = 'Pulang' AND D1.id_shift = 0
+            	THEN 'Pulang Backup'
+              WHEN C.shift = 0
+            	  THEN 'Libur'
+              ELSE 'Tanpa Keterangan'
+            END AS keterangan_pulang,
+            CASE
+              WHEN D.status LIKE '%Izin%' OR D.status LIKE '%Sakit%'
+            	  THEN D.status
+              ELSE '-'
+            END AS keterangan_lain,
+            D.timestamp AS jam_masuk,
+            D1.timestamp AS jam_keluar,
+            D.lampiran,
+            D.alasan
+            FROM shift_karyawan A
+            LEFT JOIN master_karyawan B ON A.id_karyawan = B.id
+            LEFT JOIN master_shift C ON A.id_shift = C.id
+            LEFT JOIN absensi D ON D.status !='Pulang' AND A.id_karyawan = D.id_karyawan AND DATE(D.timestamp) BETWEEN A.start_date AND A.end_date
+            LEFT JOIN absensi D1 ON 
+            	D1.status = 'Pulang' AND 
+            	D.id_karyawan = D1.id_karyawan AND 
+            	D.id_shift = D1.id_shift AND 
+            	(
+            		(DATE(D.timestamp) = DATE(D1.timestamp) AND TIME(D.timestamp) < TIME(D1.timestamp)) OR
+            		(DATE(ADDTIME(D.timestamp, '08:00:00')) = DATE(D.timestamp) + INTERVAL 1 DAY AND DATE(D1.timestamp) = DATE(D.timestamp) + INTERVAL 1 DAY)
+            	)
+            LEFT JOIN master_lokasi E ON A.id_lokasi = E.id
+            WHERE 
+            	A.id_lokasi=${id_lokasi} AND 
+            	DATE(D.timestamp) BETWEEN '${start_date}' AND '${end_date}' OR 
+            	DATE(D1.timestamp) BETWEEN '${start_date}' AND '${end_date}'
+            ORDER BY A.start_date, D.timestamp
+            LIMIT 10 OFFSET 0;`;
 
   db.query(query, (err, results) => {
     if (err) {
@@ -247,7 +224,39 @@ app.get("/absensibylokasi", (req, res) => {
       res.status(500).json({ error: "Internal server error" });
       return;
     }
-    res.json({ absensi: results });
+    results.forEach((row) => {
+      if (row.foto_datang instanceof Buffer) {
+        const filePath = path.join(__dirname, `photo_${row.id_datang}.jpg`);
+        fs.writeFileSync(filePath, row.foto_datang);
+        row.foto_datang = filePath;
+      }
+
+      if (row.foto_pulang instanceof Buffer) {
+        const filePath = path.join(__dirname, `photo_${row.id_pulang}.jpg`);
+        fs.writeFileSync(filePath, row.foto_pulang);
+        row.foto_pulang = filePath;
+      }
+    });
+
+    // Create a new worksheet
+    const ws = XLSX.utils.json_to_sheet(results);
+
+    // Create a new workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet 1");
+
+    // Set response headers for Excel file
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${id_lokasi}_${start_date}-${end_date}.xlsx`
+    );
+
+    // Stream the workbook to the response
+    XLSX.write(wb, { bookType: "xlsx", type: "stream" }).pipe(res);
   });
 });
 
@@ -271,12 +280,12 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
     const jarak = number_format(distance.kilometers, 2);
     let id_shift = 0;
 
-    if (status !== "Backup Hadir" || status !== "Backup Pulang") {
+    if (status !== "Backup Hadir" && status !== "Backup Pulang") {
       id_shift = await getShiftAbsen(id_lokasi, id_karyawan, status);
     }
 
     // Check if the distance is within 100 meters
-    if (jarak <= 0.08) {
+    if (jarak <= 1.0) {
       let photo = null;
       if (req.file) {
         photo = req.file.buffer; // The file buffer containing the photo
@@ -306,13 +315,15 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
         (err, results) => {
           if (err) {
             console.error("Error insert absensi:", err);
-            res.status(500).json({ error: "Internal server error" });
+            res
+              .status(500)
+              .json({ error: "Internal server error", message: err });
             return;
           }
           res.json({ absensi: results });
         }
       );
-    } else if (jarak >= 0.05 && (status === "Izin" || status === "Sakit")) {
+    } else if (jarak >= 1.0 && (status === "Izin" || status === "Sakit")) {
       const days = JSON.parse(hari_izin);
       if (days.length > 0) {
         try {
@@ -369,13 +380,16 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
         res.json({ message: "No dates provided for absensi" });
       }
     } else {
-      console.error("Jarak tidak tepat:", latitude + ", " + longitude);
+      console.error(
+        "Jarak tidak tepat:",
+        latitude + ", " + longitude + ". Lokasi sejauh " + jarak
+      );
       res.status(500).json({
         error: `Kamu sejauh ${jarak} kilometers dari lokasi yang valid.`,
       });
     }
   } catch (err) {
-    console.log(err);
+    console.error(err);
     res.status(500).json({ error: err });
   }
 });
@@ -751,7 +765,7 @@ app.get("/lokasi", (req, res) => {
         master_shift.jam_masuk, 
         master_shift.jam_keluar, 
         master_lokasi.lat, 
-        master_lokasi.long 
+        master_lokasi.long AS lng
     FROM master_lokasi 
     LEFT JOIN master_shift ON master_lokasi.id = master_shift.id_lokasi ORDER BY master_lokasi.nama_lokasi, master_shift.jam_masuk;`,
     (err, results) => {
