@@ -279,7 +279,7 @@ app.get("/absensiFotobylokasi", (req, res) => {
         const filePath = path.join(
           __dirname,
           "/foto",
-          `photo_${row.id_datang}.jpg`
+          `photo_${row.id_datang}.jpeg`
         );
         fs.writeFileSync(filePath, row.foto_datang);
         row.foto_datang = filePath;
@@ -289,7 +289,7 @@ app.get("/absensiFotobylokasi", (req, res) => {
         const filePath = path.join(
           __dirname,
           "/foto",
-          `photo_${row.id_pulang}.jpg`
+          `photo_${row.id_pulang}.jpeg`
         );
         fs.writeFileSync(filePath, row.foto_pulang);
         row.foto_pulang = filePath;
