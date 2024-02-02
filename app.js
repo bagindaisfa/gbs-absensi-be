@@ -5,6 +5,7 @@ const db = require("./db");
 const XLSX = require("xlsx");
 const fs = require("fs");
 const path = require("path");
+const axios = require("axios");
 
 var app = express();
 var port = process.env.PORT || 3001;
@@ -224,7 +225,8 @@ app.get("/absensibylokasi", (req, res) => {
       res.status(500).json({ error: "Internal server error" });
       return;
     }
-    results.forEach((row) => {
+
+    results.forEach(async (row) => {
       if (row.foto_datang instanceof Buffer) {
         const filePath = path.join(__dirname, `photo_${row.id_datang}.jpg`);
         fs.writeFileSync(filePath, row.foto_datang);
@@ -236,6 +238,24 @@ app.get("/absensibylokasi", (req, res) => {
         fs.writeFileSync(filePath, row.foto_pulang);
         row.foto_pulang = filePath;
       }
+
+      if (row.foto_datang && row.foto_datang.startsWith("http")) {
+        console.error("Downloading foto_datang:", row.foto_datang);
+        const response = await axios.get(row.foto_datang, {
+          responseType: "arraybuffer",
+        });
+        console.error("Downloaded foto_datang:", response.data); // Check if it logs the image data
+        row.foto_datang = Buffer.from(response.data, "binary");
+      }
+
+      if (row.foto_pulang && row.foto_pulang.startsWith("http")) {
+        console.error("Downloading foto_pulang:", row.foto_pulang);
+        const response = await axios.get(row.foto_pulang, {
+          responseType: "arraybuffer",
+        });
+        console.error("Downloaded foto_pulang:", response.data); // Check if it logs the image data
+        row.foto_pulang = Buffer.from(response.data, "binary");
+      }
     });
 
     // Create a new worksheet
@@ -244,6 +264,9 @@ app.get("/absensibylokasi", (req, res) => {
     // Create a new workbook
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Sheet 1");
+
+    // Generate Excel file as a buffer
+    const buffer = XLSX.write(wb, { bookType: "xlsx", type: "buffer" });
 
     // Set response headers for Excel file
     res.setHeader(
@@ -255,8 +278,8 @@ app.get("/absensibylokasi", (req, res) => {
       `attachment; filename=${id_lokasi}_${start_date}-${end_date}.xlsx`
     );
 
-    // Stream the workbook to the response
-    XLSX.write(wb, { bookType: "xlsx", type: "stream" }).pipe(res);
+    // Send the buffer to the response
+    res.send(buffer);
   });
 });
 
