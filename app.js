@@ -5,7 +5,6 @@ const db = require("./db");
 const XLSX = require("xlsx");
 const fs = require("fs");
 const path = require("path");
-const axios = require("axios");
 
 var app = express();
 var port = process.env.PORT || 3001;
@@ -20,6 +19,19 @@ const upload = multer({ storage: storage });
 
 app.get("/", function (req, res) {
   res.send("Hello World! Ini adalah Website Express.js pertama saya");
+});
+
+app.get("/downloads/:filename", (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(__dirname, filename); // Update 'your_directory' to your actual directory
+
+  // Set the appropriate headers for the response
+  res.setHeader("Content-disposition", "attachment; filename=" + filename);
+  res.setHeader("Content-type", "application/octet-stream");
+
+  // Create a read stream from the file and pipe it to the response
+  const fileStream = fs.createReadStream(filePath);
+  fileStream.pipe(res);
 });
 
 app.get("/absensi", (req, res) => {
@@ -144,10 +156,6 @@ app.get("/absensibylokasi", (req, res) => {
   const query = `
             SELECT
             A.id_karyawan,
-            D.id AS id_datang,
-            D1.id AS id_pulang,
-            D.foto AS foto_datang,
-            D1.foto AS foto_pulang,
             E.nama_lokasi AS lokasi,
             B.nama AS nama_karyawan,
             CASE
@@ -216,8 +224,7 @@ app.get("/absensibylokasi", (req, res) => {
             	A.id_lokasi=${id_lokasi} AND 
             	DATE(D.timestamp) BETWEEN '${start_date}' AND '${end_date}' OR 
             	DATE(D1.timestamp) BETWEEN '${start_date}' AND '${end_date}'
-            ORDER BY A.start_date, D.timestamp
-            LIMIT 10 OFFSET 0;`;
+            ORDER BY A.start_date, D.timestamp;`;
 
   db.query(query, (err, results) => {
     if (err) {
@@ -226,60 +233,7 @@ app.get("/absensibylokasi", (req, res) => {
       return;
     }
 
-    results.forEach(async (row) => {
-      if (row.foto_datang instanceof Buffer) {
-        const filePath = path.join(__dirname, `photo_${row.id_datang}.jpg`);
-        fs.writeFileSync(filePath, row.foto_datang);
-        row.foto_datang = filePath;
-      }
-
-      if (row.foto_pulang instanceof Buffer) {
-        const filePath = path.join(__dirname, `photo_${row.id_pulang}.jpg`);
-        fs.writeFileSync(filePath, row.foto_pulang);
-        row.foto_pulang = filePath;
-      }
-
-      if (row.foto_datang && row.foto_datang.startsWith("http")) {
-        console.error("Downloading foto_datang:", row.foto_datang);
-        const response = await axios.get(row.foto_datang, {
-          responseType: "arraybuffer",
-        });
-        console.error("Downloaded foto_datang:", response.data); // Check if it logs the image data
-        row.foto_datang = Buffer.from(response.data, "binary");
-      }
-
-      if (row.foto_pulang && row.foto_pulang.startsWith("http")) {
-        console.error("Downloading foto_pulang:", row.foto_pulang);
-        const response = await axios.get(row.foto_pulang, {
-          responseType: "arraybuffer",
-        });
-        console.error("Downloaded foto_pulang:", response.data); // Check if it logs the image data
-        row.foto_pulang = Buffer.from(response.data, "binary");
-      }
-    });
-
-    // Create a new worksheet
-    const ws = XLSX.utils.json_to_sheet(results);
-
-    // Create a new workbook
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Sheet 1");
-
-    // Generate Excel file as a buffer
-    const buffer = XLSX.write(wb, { bookType: "xlsx", type: "buffer" });
-
-    // Set response headers for Excel file
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    );
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=${id_lokasi}_${start_date}-${end_date}.xlsx`
-    );
-
-    // Send the buffer to the response
-    res.send(buffer);
+    res.json({ absensi: results });
   });
 });
 
