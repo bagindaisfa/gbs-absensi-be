@@ -235,21 +235,13 @@ app.get("/absensibylokasi", (req, res) => {
     }
     results.forEach((row) => {
       if (row.foto_datang instanceof Buffer) {
-        const filePath = path.join(
-          __dirname,
-          "/foto",
-          `photo_${row.id_datang}.jpg`
-        );
+        const filePath = path.join(__dirname, `photo_${row.id_datang}.jpg`);
         fs.writeFileSync(filePath, row.foto_datang);
         row.foto_datang = filePath;
       }
 
       if (row.foto_pulang instanceof Buffer) {
-        const filePath = path.join(
-          __dirname,
-          "/foto",
-          `photo_${row.id_pulang}.jpg`
-        );
+        const filePath = path.join(__dirname, `photo_${row.id_pulang}.jpg`);
         fs.writeFileSync(filePath, row.foto_pulang);
         row.foto_pulang = filePath;
       }
