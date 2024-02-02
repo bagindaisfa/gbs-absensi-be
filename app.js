@@ -153,6 +153,92 @@ app.get("/absensi", (req, res) => {
 
 app.get("/absensibylokasi", (req, res) => {
   let { start_date, end_date, id_lokasi } = req.query;
+  const query = `
+            SELECT
+            A.id_karyawan,
+            E.nama_lokasi AS lokasi,
+            B.nama AS nama_karyawan,
+            CASE
+            	WHEN C.shift = 0 THEN 'Libur'
+            	ELSE C.shift
+            END AS shift,
+            CASE DAYNAME(DATE(D.timestamp))
+              WHEN 'Sunday' THEN 'Minggu'
+              WHEN 'Monday' THEN 'Senin'
+              WHEN 'Tuesday' THEN 'Selasa'
+              WHEN 'Wednesday' THEN 'Rabu'
+              WHEN 'Thursday' THEN 'Kamis'
+              WHEN 'Friday' THEN 'Jumat'
+              WHEN 'Saturday' THEN 'Sabtu'
+              ELSE '-'
+            END AS hari,
+            DATE(D.timestamp) AS tanggal,
+            D.status,
+            CASE
+              WHEN D.status = 'Hadir' AND TIME(D.timestamp) <= ADDTIME(C.jam_masuk, SEC_TO_TIME(E.toleransi * 60)) 
+            	  THEN 'Datang Tepat Waktu'
+              WHEN D.status = 'Hadir' AND TIME(D.timestamp) > ADDTIME(C.jam_masuk, SEC_TO_TIME(E.toleransi * 60)) 
+            	  THEN 'Datang Terlambat'
+              WHEN D.status = 'Hadir' AND D.id_shift = 0
+            	THEN 'Datang Backup'
+              WHEN C.shift = 0
+            	  THEN 'Libur'
+              ELSE 'Tanpa Keterangan'
+            END AS keterangan_kedatangan,
+            CASE
+              WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) >= TIMEDIFF(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60)) AND TIME(D1.timestamp) <= ADDTIME(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
+            	  THEN 'Pulang Tepat Waktu' 
+              WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) > ADDTIME(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
+            	  THEN 'Pulang Lembur'
+              WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) < TIMEDIFF(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
+            	  THEN 'Pulang Lebih Awal'
+              WHEN D1.status = 'Pulang' AND D1.id_shift = 0
+            	THEN 'Pulang Backup'
+              WHEN C.shift = 0
+            	  THEN 'Libur'
+              ELSE 'Tanpa Keterangan'
+            END AS keterangan_pulang,
+            CASE
+              WHEN D.status LIKE '%Izin%' OR D.status LIKE '%Sakit%'
+            	  THEN D.status
+              ELSE '-'
+            END AS keterangan_lain,
+            D.timestamp AS jam_masuk,
+            D1.timestamp AS jam_keluar,
+            D.lampiran,
+            D.alasan
+            FROM shift_karyawan A
+            LEFT JOIN master_karyawan B ON A.id_karyawan = B.id
+            LEFT JOIN master_shift C ON A.id_shift = C.id
+            LEFT JOIN absensi D ON D.status !='Pulang' AND A.id_karyawan = D.id_karyawan AND DATE(D.timestamp) BETWEEN A.start_date AND A.end_date
+            LEFT JOIN absensi D1 ON 
+            	D1.status = 'Pulang' AND 
+            	D.id_karyawan = D1.id_karyawan AND 
+            	D.id_shift = D1.id_shift AND 
+            	(
+            		(DATE(D.timestamp) = DATE(D1.timestamp) AND TIME(D.timestamp) < TIME(D1.timestamp)) OR
+            		(DATE(ADDTIME(D.timestamp, '08:00:00')) = DATE(D.timestamp) + INTERVAL 1 DAY AND DATE(D1.timestamp) = DATE(D.timestamp) + INTERVAL 1 DAY)
+            	)
+            LEFT JOIN master_lokasi E ON A.id_lokasi = E.id
+            WHERE 
+            	A.id_lokasi=${id_lokasi} AND 
+            	DATE(D.timestamp) BETWEEN '${start_date}' AND '${end_date}' OR 
+            	DATE(D1.timestamp) BETWEEN '${start_date}' AND '${end_date}'
+            ORDER BY A.start_date, D.timestamp;`;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching absensi:", err);
+      res.status(500).json({ error: "Internal server error" });
+      return;
+    }
+
+    res.json({ absensi: results });
+  });
+});
+
+app.get("/absensiFotobylokasi", (req, res) => {
+  let { start_date, end_date, id_lokasi } = req.query;
 
   const query = `
             SELECT
