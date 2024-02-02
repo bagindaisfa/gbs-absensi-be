@@ -23,7 +23,7 @@ app.get("/", function (req, res) {
 
 app.get("/downloads/:filename", (req, res) => {
   const filename = req.params.filename;
-  const filePath = path.join(__dirname, filename); // Update 'your_directory' to your actual directory
+  const filePath = path.join(__dirname, "/foto", filename); // Update 'your_directory' to your actual directory
 
   // Set the appropriate headers for the response
   res.setHeader("Content-disposition", "attachment; filename=" + filename);
@@ -156,6 +156,8 @@ app.get("/absensibylokasi", (req, res) => {
   const query = `
             SELECT
             A.id_karyawan,
+            D.id AS id_datang,
+            D1.id AS id_pulang,
             E.nama_lokasi AS lokasi,
             B.nama AS nama_karyawan,
             CASE
