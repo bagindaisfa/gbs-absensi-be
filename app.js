@@ -154,79 +154,90 @@ app.get("/absensi", (req, res) => {
 app.get("/absensibylokasi", (req, res) => {
   let { start_date, end_date, id_lokasi } = req.query;
   const query = `
-            SELECT
-            A.id_karyawan,
-            D.id AS id_datang,
-            D1.id AS id_pulang,
-            E.nama_lokasi AS lokasi,
-            B.nama AS nama_karyawan,
-            CASE
-            	WHEN C.shift = 0 THEN 'Libur'
-            	ELSE C.shift
-            END AS shift,
-            CASE DAYNAME(DATE(D.timestamp))
-              WHEN 'Sunday' THEN 'Minggu'
-              WHEN 'Monday' THEN 'Senin'
-              WHEN 'Tuesday' THEN 'Selasa'
-              WHEN 'Wednesday' THEN 'Rabu'
-              WHEN 'Thursday' THEN 'Kamis'
-              WHEN 'Friday' THEN 'Jumat'
-              WHEN 'Saturday' THEN 'Sabtu'
-              ELSE '-'
-            END AS hari,
-            DATE(D.timestamp) AS tanggal,
-            D.status,
-            CASE
-              WHEN D.status = 'Hadir' AND TIME(D.timestamp) <= ADDTIME(C.jam_masuk, SEC_TO_TIME(E.toleransi * 60)) 
-            	  THEN 'Datang Tepat Waktu'
-              WHEN D.status = 'Hadir' AND TIME(D.timestamp) > ADDTIME(C.jam_masuk, SEC_TO_TIME(E.toleransi * 60)) 
-            	  THEN 'Datang Terlambat'
-              WHEN D.status = 'Hadir' AND D.id_shift = 0
-            	THEN 'Datang Backup'
-              WHEN C.shift = 0
-            	  THEN 'Libur'
-              ELSE 'Tanpa Keterangan'
-            END AS keterangan_kedatangan,
-            CASE
-              WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) >= TIMEDIFF(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60)) AND TIME(D1.timestamp) <= ADDTIME(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
-            	  THEN 'Pulang Tepat Waktu' 
-              WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) > ADDTIME(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
-            	  THEN 'Pulang Lembur'
-              WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) < TIMEDIFF(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
-            	  THEN 'Pulang Lebih Awal'
-              WHEN D1.status = 'Pulang' AND D1.id_shift = 0
-            	THEN 'Pulang Backup'
-              WHEN C.shift = 0
-            	  THEN 'Libur'
-              ELSE 'Tanpa Keterangan'
-            END AS keterangan_pulang,
-            CASE
-              WHEN D.status LIKE '%Izin%' OR D.status LIKE '%Sakit%'
-            	  THEN D.status
-              ELSE '-'
-            END AS keterangan_lain,
-            D.timestamp AS jam_masuk,
-            D1.timestamp AS jam_keluar,
-            D.lampiran,
-            D.alasan
-            FROM shift_karyawan A
-            LEFT JOIN master_karyawan B ON A.id_karyawan = B.id
-            LEFT JOIN master_shift C ON A.id_shift = C.id
-            LEFT JOIN absensi D ON D.status !='Pulang' AND A.id_karyawan = D.id_karyawan AND DATE(D.timestamp) BETWEEN A.start_date AND A.end_date
-            LEFT JOIN absensi D1 ON 
-            	D1.status = 'Pulang' AND 
-            	D.id_karyawan = D1.id_karyawan AND 
-            	D.id_shift = D1.id_shift AND 
-            	(
-            		(DATE(D.timestamp) = DATE(D1.timestamp) AND TIME(D.timestamp) < TIME(D1.timestamp)) OR
-            		(DATE(ADDTIME(D.timestamp, '08:00:00')) = DATE(D.timestamp) + INTERVAL 1 DAY AND DATE(D1.timestamp) = DATE(D.timestamp) + INTERVAL 1 DAY)
-            	)
-            LEFT JOIN master_lokasi E ON A.id_lokasi = E.id
-            WHERE 
-            	A.id_lokasi=${id_lokasi} AND 
-            	DATE(D.timestamp) BETWEEN '${start_date}' AND '${end_date}' OR 
-            	DATE(D1.timestamp) BETWEEN '${start_date}' AND '${end_date}'
-            ORDER BY A.start_date, D.timestamp;`;
+      SELECT
+        A.id_karyawan,
+        D.id AS id_datang,
+        D1.id AS id_pulang,
+        E.nama_lokasi AS lokasi,
+        B.nama AS nama_karyawan,
+        CASE
+          WHEN D.id_shift = 0 THEN 'Backup'
+          WHEN C.shift = 0 AND D.id_shift IS NULL THEN 'Libur'
+          ELSE C.shift
+        END AS shift,
+        CASE DAYNAME(DATE(dates.tanggal))
+          WHEN 'Sunday' THEN 'Minggu'
+          WHEN 'Monday' THEN 'Senin'
+          WHEN 'Tuesday' THEN 'Selasa'
+          WHEN 'Wednesday' THEN 'Rabu'
+          WHEN 'Thursday' THEN 'Kamis'
+          WHEN 'Friday' THEN 'Jumat'
+          WHEN 'Saturday' THEN 'Sabtu'
+          ELSE '-'
+        END AS hari,
+        dates.tanggal,
+        D.status,
+        CASE
+          WHEN D.status = 'Hadir' AND TIME(D.timestamp) <= ADDTIME(C.jam_masuk, SEC_TO_TIME(E.toleransi * 60)) 
+            THEN 'Datang Tepat Waktu'
+          WHEN D.status = 'Hadir' AND TIME(D.timestamp) > ADDTIME(C.jam_masuk, SEC_TO_TIME(E.toleransi * 60)) 
+            THEN 'Datang Terlambat'
+          WHEN D.status = 'Hadir' AND D.id_shift = 0
+          THEN 'Datang Backup'
+          WHEN C.shift = 0
+            THEN 'Libur'
+          ELSE 'Tanpa Keterangan'
+        END AS keterangan_kedatangan,
+        CASE
+          WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) >= TIMEDIFF(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60)) AND TIME(D1.timestamp) <= ADDTIME(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
+            THEN 'Pulang Tepat Waktu' 
+          WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) > ADDTIME(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
+            THEN 'Pulang Lembur'
+          WHEN D1.status = 'Pulang' AND TIME(D1.timestamp) < TIMEDIFF(C.jam_keluar, SEC_TO_TIME(E.toleransi * 60))
+            THEN 'Pulang Lebih Awal'
+          WHEN D1.status = 'Pulang' AND D1.id_shift = 0
+          THEN 'Pulang Backup'
+          WHEN C.shift = 0
+            THEN 'Libur'
+          ELSE 'Tanpa Keterangan'
+        END AS keterangan_pulang,
+        CASE
+          WHEN D.status LIKE '%Izin%' OR D.status LIKE '%Sakit%' THEN D.status
+            WHEN D.status IS NULL AND D1.status IS NULL AND C.shift != 0 THEN 'Tanpa Keterangan'
+            WHEN C.shift = 0 THEN 'Libur'
+        ELSE '-'
+        END AS keterangan_lain,
+        D.timestamp AS jam_masuk,
+        D1.timestamp AS jam_keluar,
+        D.lampiran,
+        D.alasan
+      FROM
+      (
+      SELECT DATE_ADD('${start_date}', INTERVAL n DAY) AS tanggal
+      FROM (
+        SELECT (a.N + b.N * 10) AS n
+        FROM
+          (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) a,
+          (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4) b
+      ) numbers
+      WHERE DATE_ADD('${start_date}', INTERVAL n DAY) <= '${end_date}'
+      ORDER BY tanggal
+      ) AS dates
+      LEFT JOIN shift_karyawan A ON A.start_date = dates.tanggal OR dates.tanggal = A.end_date
+      LEFT JOIN master_karyawan B ON A.id_karyawan = B.id
+      LEFT JOIN master_shift C ON A.id_shift = C.id
+      LEFT JOIN absensi D ON D.status !='Pulang' AND A.id_karyawan = D.id_karyawan AND DATE(D.timestamp) = dates.tanggal
+      LEFT JOIN absensi D1 ON 
+      D1.status = 'Pulang' AND 
+      D.id_karyawan = D1.id_karyawan AND 
+      D.id_shift = D1.id_shift AND 
+      (
+        (DATE(D.timestamp) = DATE(D1.timestamp) AND TIME(D.timestamp) < TIME(D1.timestamp)) OR
+        (DATE(ADDTIME(D.timestamp, '08:00:00')) = DATE(D.timestamp) + INTERVAL 1 DAY AND DATE(D1.timestamp) = DATE(D.timestamp) + INTERVAL 1 DAY)
+      )
+      LEFT JOIN master_lokasi E ON A.id_lokasi = E.id
+      WHERE A.id_lokasi=${id_lokasi}
+      ORDER BY dates.tanggal, B.nama;`;
 
   db.query(query, (err, results) => {
     if (err) {
@@ -249,24 +260,33 @@ app.get("/absensiFotobylokasi", (req, res) => {
             D1.id AS id_pulang,
             D.foto AS foto_datang,
             D1.foto AS foto_pulang
-            FROM shift_karyawan A
-            LEFT JOIN master_karyawan B ON A.id_karyawan = B.id
-            LEFT JOIN master_shift C ON A.id_shift = C.id
-            LEFT JOIN absensi D ON D.status !='Pulang' AND A.id_karyawan = D.id_karyawan AND DATE(D.timestamp) BETWEEN A.start_date AND A.end_date
-            LEFT JOIN absensi D1 ON 
-            	D1.status = 'Pulang' AND 
-            	D.id_karyawan = D1.id_karyawan AND 
-            	D.id_shift = D1.id_shift AND 
-            	(
-            		(DATE(D.timestamp) = DATE(D1.timestamp) AND TIME(D.timestamp) < TIME(D1.timestamp)) OR
-            		(DATE(ADDTIME(D.timestamp, '08:00:00')) = DATE(D.timestamp) + INTERVAL 1 DAY AND DATE(D1.timestamp) = DATE(D.timestamp) + INTERVAL 1 DAY)
-            	)
-            LEFT JOIN master_lokasi E ON A.id_lokasi = E.id
-            WHERE 
-            	A.id_lokasi=${id_lokasi} AND 
-            	DATE(D.timestamp) BETWEEN '${start_date}' AND '${end_date}' OR 
-            	DATE(D1.timestamp) BETWEEN '${start_date}' AND '${end_date}'
-            ORDER BY A.start_date, D.timestamp;`;
+            FROM
+              (
+              SELECT DATE_ADD('${start_date}', INTERVAL n DAY) AS tanggal
+              FROM (
+                SELECT (a.N + b.N * 10) AS n
+                FROM
+                  (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) a,
+                  (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4) b
+              ) numbers
+              WHERE DATE_ADD('${start_date}', INTERVAL n DAY) <= '${end_date}'
+              ORDER BY tanggal
+              ) AS dates
+              LEFT JOIN shift_karyawan A ON A.start_date = dates.tanggal OR dates.tanggal = A.end_date
+              LEFT JOIN master_karyawan B ON A.id_karyawan = B.id
+              LEFT JOIN master_shift C ON A.id_shift = C.id
+              LEFT JOIN absensi D ON D.status !='Pulang' AND A.id_karyawan = D.id_karyawan AND DATE(D.timestamp) = dates.tanggal
+              LEFT JOIN absensi D1 ON 
+              D1.status = 'Pulang' AND 
+              D.id_karyawan = D1.id_karyawan AND 
+              D.id_shift = D1.id_shift AND 
+              (
+                (DATE(D.timestamp) = DATE(D1.timestamp) AND TIME(D.timestamp) < TIME(D1.timestamp)) OR
+                (DATE(ADDTIME(D.timestamp, '08:00:00')) = DATE(D.timestamp) + INTERVAL 1 DAY AND DATE(D1.timestamp) = DATE(D.timestamp) + INTERVAL 1 DAY)
+              )
+              LEFT JOIN master_lokasi E ON A.id_lokasi = E.id
+              WHERE A.id_lokasi=${id_lokasi}
+              ORDER BY dates.tanggal, B.nama;`;
 
   db.query(query, (err, results) => {
     if (err) {
