@@ -237,7 +237,7 @@ app.get("/absensibylokasi", (req, res) => {
       )
       LEFT JOIN master_lokasi E ON A.id_lokasi = E.id
       WHERE A.id_lokasi=${id_lokasi}
-      ORDER BY dates.tanggal, B.nama;`;
+      ORDER BY dates.tanggal, B.nama, D.timestamp;`;
 
   db.query(query, (err, results) => {
     if (err) {
@@ -286,7 +286,7 @@ app.get("/absensiFotobylokasi", (req, res) => {
               )
               LEFT JOIN master_lokasi E ON A.id_lokasi = E.id
               WHERE A.id_lokasi=${id_lokasi}
-              ORDER BY dates.tanggal, B.nama;`;
+              ORDER BY dates.tanggal, B.nama, D.timestamp;`;
 
   db.query(query, (err, results) => {
     if (err) {
