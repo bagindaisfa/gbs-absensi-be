@@ -223,7 +223,7 @@ app.get("/absensibylokasi", (req, res) => {
       WHERE DATE_ADD('${start_date}', INTERVAL n DAY) <= '${end_date}'
       ORDER BY tanggal
       ) AS dates
-      LEFT JOIN shift_karyawan A ON A.start_date = dates.tanggal OR dates.tanggal = A.end_date
+      LEFT JOIN shift_karyawan A ON dates.tanggal BETWEEN A.start_date AND A.end_date
       LEFT JOIN master_karyawan B ON A.id_karyawan = B.id
       LEFT JOIN master_shift C ON A.id_shift = C.id
       LEFT JOIN absensi D ON D.status !='Pulang' AND A.id_karyawan = D.id_karyawan AND DATE(D.timestamp) = dates.tanggal
@@ -272,7 +272,7 @@ app.get("/absensiFotobylokasi", (req, res) => {
               WHERE DATE_ADD('${start_date}', INTERVAL n DAY) <= '${end_date}'
               ORDER BY tanggal
               ) AS dates
-              LEFT JOIN shift_karyawan A ON A.start_date = dates.tanggal OR dates.tanggal = A.end_date
+              LEFT JOIN shift_karyawan A ON dates.tanggal BETWEEN A.start_date AND A.end_date
               LEFT JOIN master_karyawan B ON A.id_karyawan = B.id
               LEFT JOIN master_shift C ON A.id_shift = C.id
               LEFT JOIN absensi D ON D.status !='Pulang' AND A.id_karyawan = D.id_karyawan AND DATE(D.timestamp) = dates.tanggal
