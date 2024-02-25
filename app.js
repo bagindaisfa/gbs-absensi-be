@@ -727,7 +727,9 @@ app.get("/shiftkaryawan", (req, res) => {
         master_shift.jam_masuk,
         master_shift.jam_keluar
     FROM shift_karyawan 
-    LEFT JOIN master_shift ON shift_karyawan.id_shift = master_shift.id WHERE shift_karyawan.id_lokasi=${id_lokasi} AND shift_karyawan.id_karyawan=${id_karyawan};`,
+    LEFT JOIN master_shift ON shift_karyawan.id_shift = master_shift.id 
+    WHERE shift_karyawan.id_lokasi=${id_lokasi} AND shift_karyawan.id_karyawan=${id_karyawan}
+    ORDER BY shift_karyawan.start_date;`,
     (err, results) => {
       if (err) {
         console.error("Error fetching shiftkaryawan:", err);
