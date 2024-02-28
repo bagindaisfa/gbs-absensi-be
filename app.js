@@ -1,10 +1,10 @@
-var express = require("express");
-const cors = require("cors");
-const multer = require("multer");
-const db = require("./db");
-const XLSX = require("xlsx");
-const fs = require("fs");
-const path = require("path");
+var express = require('express');
+const cors = require('cors');
+const multer = require('multer');
+const db = require('./db');
+const XLSX = require('xlsx');
+const fs = require('fs');
+const path = require('path');
 
 var app = express();
 var port = process.env.PORT || 3001;
@@ -17,24 +17,24 @@ const upload = multer({ storage: storage });
 
 // Routes
 
-app.get("/", function (req, res) {
-  res.send("Hello World! Ini adalah Website Express.js pertama saya");
+app.get('/', function (req, res) {
+  res.send('Hello World! Ini adalah Website Express.js pertama saya');
 });
 
-app.get("/downloads/:filename", (req, res) => {
+app.get('/downloads/:filename', (req, res) => {
   const filename = req.params.filename;
-  const filePath = path.join(__dirname, "/foto", filename); // Update 'your_directory' to your actual directory
+  const filePath = path.join(__dirname, '/foto', filename); // Update 'your_directory' to your actual directory
 
   // Set the appropriate headers for the response
-  res.setHeader("Content-disposition", "attachment; filename=" + filename);
-  res.setHeader("Content-type", "application/octet-stream");
+  res.setHeader('Content-disposition', 'attachment; filename=' + filename);
+  res.setHeader('Content-type', 'application/octet-stream');
 
   // Create a read stream from the file and pipe it to the response
   const fileStream = fs.createReadStream(filePath);
   fileStream.pipe(res);
 });
 
-app.get("/absensi", (req, res) => {
+app.get('/absensi', (req, res) => {
   let { start_date, end_date } = req.query;
   const query = `
             WITH RankedAbsensi AS (
@@ -143,15 +143,15 @@ app.get("/absensi", (req, res) => {
 
   db.query(query, (err, results) => {
     if (err) {
-      console.error("Error fetching absensi:", err);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error fetching absensi:', err);
+      res.status(500).json({ error: 'Internal server error' });
       return;
     }
     res.json({ absensi: results });
   });
 });
 
-app.get("/absensibylokasi", (req, res) => {
+app.get('/absensibylokasi', (req, res) => {
   let { start_date, end_date, id_lokasi } = req.query;
   const query = `
       SELECT
@@ -241,8 +241,8 @@ app.get("/absensibylokasi", (req, res) => {
 
   db.query(query, (err, results) => {
     if (err) {
-      console.error("Error fetching absensi:", err);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error fetching absensi:', err);
+      res.status(500).json({ error: 'Internal server error' });
       return;
     }
 
@@ -250,7 +250,7 @@ app.get("/absensibylokasi", (req, res) => {
   });
 });
 
-app.get("/absensiFotobylokasi", (req, res) => {
+app.get('/absensiFotobylokasi', (req, res) => {
   let { start_date, end_date, id_lokasi } = req.query;
 
   const query = `
@@ -290,15 +290,15 @@ app.get("/absensiFotobylokasi", (req, res) => {
 
   db.query(query, (err, results) => {
     if (err) {
-      console.error("Error fetching absensi:", err);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error fetching absensi:', err);
+      res.status(500).json({ error: 'Internal server error' });
       return;
     }
     results.forEach((row) => {
       if (row.foto_datang instanceof Buffer) {
         const filePath = path.join(
           __dirname,
-          "/foto",
+          '/foto',
           `photo_${row.id_datang}.jpeg`
         );
         fs.writeFileSync(filePath, row.foto_datang);
@@ -308,7 +308,7 @@ app.get("/absensiFotobylokasi", (req, res) => {
       if (row.foto_pulang instanceof Buffer) {
         const filePath = path.join(
           __dirname,
-          "/foto",
+          '/foto',
           `photo_${row.id_pulang}.jpeg`
         );
         fs.writeFileSync(filePath, row.foto_pulang);
@@ -319,7 +319,7 @@ app.get("/absensiFotobylokasi", (req, res) => {
   });
 });
 
-app.post("/absensi", upload.single("foto"), async (req, res) => {
+app.post('/absensi', upload.single('foto'), async (req, res) => {
   try {
     const {
       id_karyawan,
@@ -339,7 +339,7 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
     const jarak = number_format(distance.kilometers, 2);
     let id_shift = 0;
 
-    if (status !== "Backup Hadir" && status !== "Backup Pulang") {
+    if (status !== 'Backup Hadir' && status !== 'Backup Pulang') {
       id_shift = await getShiftAbsen(id_lokasi, id_karyawan, status);
     }
 
@@ -351,7 +351,7 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
       }
 
       const sqlQuery =
-        "INSERT INTO absensi (timestamp,id_karyawan,id_lokasi,id_shift,status,lampiran,foto,lat,`long`,alasan) VALUES (?,?,?,?,?,?,?,?,?,?)";
+        'INSERT INTO absensi (timestamp,id_karyawan,id_lokasi,id_shift,status,lampiran,foto,lat,`long`,alasan) VALUES (?,?,?,?,?,?,?,?,?,?)';
 
       db.query(
         sqlQuery,
@@ -360,29 +360,29 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
           id_karyawan,
           id_lokasi,
           id_shift ? id_shift : 0,
-          status === "Backup Hadir"
-            ? "Hadir"
-            : status === "Backup Pulang"
-            ? "Pulang"
+          status === 'Backup Hadir'
+            ? 'Hadir'
+            : status === 'Backup Pulang'
+            ? 'Pulang'
             : status,
-          status.includes("Izin") ? photo : null,
-          status.includes("Izin") ? null : photo,
+          status.includes('Izin') ? photo : null,
+          status.includes('Izin') ? null : photo,
           latitude,
           longitude,
           alasan,
         ],
         (err, results) => {
           if (err) {
-            console.error("Error insert absensi:", err);
+            console.error('Error insert absensi:', err);
             res
               .status(500)
-              .json({ error: "Internal server error", message: err });
+              .json({ error: 'Internal server error', message: err });
             return;
           }
           res.json({ absensi: results });
         }
       );
-    } else if (jarak >= 1.0 && (status === "Izin" || status === "Sakit")) {
+    } else if (jarak >= 1.0 && (status === 'Izin' || status === 'Sakit')) {
       const days = JSON.parse(hari_izin);
       if (days.length > 0) {
         try {
@@ -416,7 +416,7 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
                   ],
                   (err, results) => {
                     if (err) {
-                      console.error("Error insert absensi:", err);
+                      console.error('Error insert absensi:', err);
                       reject(err);
                     } else {
                       resolve(results);
@@ -430,18 +430,18 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
             await executeQuery();
           }
 
-          res.json({ message: "Absensi inserted successfully" });
+          res.json({ message: 'Absensi inserted successfully' });
         } catch (error) {
-          console.error("Error:", error);
-          res.status(500).json({ error: "Internal server error" });
+          console.error('Error:', error);
+          res.status(500).json({ error: 'Internal server error' });
         }
       } else {
-        res.json({ message: "No dates provided for absensi" });
+        res.json({ message: 'No dates provided for absensi' });
       }
     } else {
       console.error(
-        "Jarak tidak tepat:",
-        latitude + ", " + longitude + ". Lokasi sejauh " + jarak
+        'Jarak tidak tepat:',
+        latitude + ', ' + longitude + '. Lokasi sejauh ' + jarak
       );
       res.status(500).json({
         error: `Kamu sejauh ${jarak} kilometers dari lokasi yang valid.`,
@@ -453,7 +453,7 @@ app.post("/absensi", upload.single("foto"), async (req, res) => {
   }
 });
 
-app.post("/absensimanual", upload.single("foto"), async (req, res) => {
+app.post('/absensimanual', upload.single('foto'), async (req, res) => {
   try {
     const {
       id_karyawan,
@@ -475,11 +475,11 @@ app.post("/absensimanual", upload.single("foto"), async (req, res) => {
     const distance = getDistanceBetweenPoints(lat, long, latitude, longitude);
     const jarak = number_format(distance.kilometers, 2);
 
-    if (status === "Pulang") {
+    if (status === 'Pulang') {
       if (id_shift === 0) {
         const idShift = await getShift(id_lokasi, id_karyawan, dateNow);
         validate = await getValidateTimeStamp(idShift);
-        console.log("idShift:", idShift);
+        console.log('idShift:', idShift);
       } else {
         validate = await getValidateTimeStamp(id_shift);
       }
@@ -493,7 +493,7 @@ app.post("/absensimanual", upload.single("foto"), async (req, res) => {
       }
 
       const sqlQuery =
-        "INSERT INTO absensi (timestamp,id_karyawan,id_lokasi,id_shift,status,lampiran,foto,lat,`long`,alasan) VALUES (?,?,?,?,?,?,?,?,?,?)";
+        'INSERT INTO absensi (timestamp,id_karyawan,id_lokasi,id_shift,status,lampiran,foto,lat,`long`,alasan) VALUES (?,?,?,?,?,?,?,?,?,?)';
 
       db.query(
         sqlQuery,
@@ -503,22 +503,22 @@ app.post("/absensimanual", upload.single("foto"), async (req, res) => {
           id_lokasi,
           id_shift,
           status,
-          status.includes("Izin") ? photo : null,
-          status.includes("Izin") ? null : photo,
+          status.includes('Izin') ? photo : null,
+          status.includes('Izin') ? null : photo,
           latitude,
           longitude,
           alasan,
         ],
         (err, results) => {
           if (err) {
-            console.error("Error insert absensi:", err);
-            res.status(500).json({ error: "Internal server error" });
+            console.error('Error insert absensi:', err);
+            res.status(500).json({ error: 'Internal server error' });
             return;
           }
           res.json({ absensi: results });
         }
       );
-    } else if (jarak >= 0.05 && (status === "Izin" || status === "Sakit")) {
+    } else if (jarak >= 0.05 && (status === 'Izin' || status === 'Sakit')) {
       const days = JSON.parse(hari_izin);
       if (days.length > 0) {
         try {
@@ -552,7 +552,7 @@ app.post("/absensimanual", upload.single("foto"), async (req, res) => {
                   ],
                   (err, results) => {
                     if (err) {
-                      console.error("Error insert absensi:", err);
+                      console.error('Error insert absensi:', err);
                       reject(err);
                     } else {
                       resolve(results);
@@ -566,16 +566,16 @@ app.post("/absensimanual", upload.single("foto"), async (req, res) => {
             await executeQuery();
           }
 
-          res.json({ message: "Absensi inserted successfully" });
+          res.json({ message: 'Absensi inserted successfully' });
         } catch (error) {
-          console.error("Error:", error);
-          res.status(500).json({ error: "Internal server error" });
+          console.error('Error:', error);
+          res.status(500).json({ error: 'Internal server error' });
         }
       } else {
-        res.json({ message: "No dates provided for absensi" });
+        res.json({ message: 'No dates provided for absensi' });
       }
     } else {
-      console.error("Jarak tidak tepat:", latitude + ", " + longitude);
+      console.error('Jarak tidak tepat:', latitude + ', ' + longitude);
       res.status(500).json({
         error: `Kamu sejauh ${jarak} kilometers dari lokasi yang valid.`,
       });
@@ -585,24 +585,24 @@ app.post("/absensimanual", upload.single("foto"), async (req, res) => {
   }
 });
 
-app.get("/karyawan", (req, res) => {
-  db.query("SELECT * FROM master_karyawan", (err, results) => {
+app.get('/karyawan', (req, res) => {
+  db.query('SELECT * FROM master_karyawan', (err, results) => {
     if (err) {
-      console.error("Error fetching karyawan:", err);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error fetching karyawan:', err);
+      res.status(500).json({ error: 'Internal server error' });
       return;
     }
     res.json({ karyawan: results });
   });
 });
 
-app.get("/karyawanList", (req, res) => {
+app.get('/karyawanList', (req, res) => {
   db.query(
-    "SELECT master_karyawan.*,master_lokasi.nama_lokasi FROM master_karyawan LEFT JOIN master_lokasi ON master_karyawan.id_lokasi = master_lokasi.id;",
+    'SELECT master_karyawan.*,master_lokasi.nama_lokasi FROM master_karyawan LEFT JOIN master_lokasi ON master_karyawan.id_lokasi = master_lokasi.id;',
     (err, results) => {
       if (err) {
-        console.error("Error fetching karyawan:", err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error('Error fetching karyawan:', err);
+        res.status(500).json({ error: 'Internal server error' });
         return;
       }
       res.json({ karyawan: results });
@@ -610,17 +610,17 @@ app.get("/karyawanList", (req, res) => {
   );
 });
 
-app.post("/karyawan", async (req, res) => {
+app.post('/karyawan', async (req, res) => {
   const { nama, id_lokasi, shift } = req.query;
   const shift_data = JSON.parse(shift);
-  const sqlQuery = "INSERT INTO master_karyawan (nama, id_lokasi) VALUES(?,?)";
+  const sqlQuery = 'INSERT INTO master_karyawan (nama, id_lokasi) VALUES(?,?)';
   const sqlQueryShift =
-    "INSERT INTO `shift_karyawan`( `id_shift`, `id_lokasi`, `id_karyawan`, `start_date`, `end_date`) VALUES (?,?,?,?,?)";
+    'INSERT INTO `shift_karyawan`( `id_shift`, `id_lokasi`, `id_karyawan`, `start_date`, `end_date`) VALUES (?,?,?,?,?)';
 
   db.query(sqlQuery, [nama, id_lokasi], (err, results) => {
     if (err) {
-      console.error("Error insert karyawan:", err);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error insert karyawan:', err);
+      res.status(500).json({ error: 'Internal server error' });
       return;
     } else {
       for (let i = 0; i < shift_data.length; i++) {
@@ -635,9 +635,9 @@ app.post("/karyawan", async (req, res) => {
           ],
           (err, results) => {
             if (err) {
-              console.error("Error insert shift:", err);
+              console.error('Error insert shift:', err);
             } else {
-              console.log("Success insert shift:", results);
+              console.log('Success insert shift:', results);
             }
           }
         );
@@ -647,35 +647,35 @@ app.post("/karyawan", async (req, res) => {
   });
 });
 
-app.put("/karyawan", async (req, res) => {
+app.put('/karyawan', async (req, res) => {
   const { id, nama, id_lokasi, shift } = req.query;
   const shift_data = JSON.parse(shift);
-  const sqlQuery = "UPDATE master_karyawan SET nama=?, id_lokasi=? WHERE id=?";
+  const sqlQuery = 'UPDATE master_karyawan SET nama=?, id_lokasi=? WHERE id=?';
   const sqlQueryShift =
-    "UPDATE `shift_karyawan` SET `id_shift`=?, `id_lokasi`=?, `id_karyawan`=?, `start_date`=?, `end_date`=? WHERE `id`=?";
-  const sqlQueryDeleteShift = "DELETE FROM `shift_karyawan` WHERE `id`=?";
+    'UPDATE `shift_karyawan` SET `id_shift`=?, `id_lokasi`=?, `id_karyawan`=?, `start_date`=?, `end_date`=? WHERE `id`=?';
+  const sqlQueryDeleteShift = 'DELETE FROM `shift_karyawan` WHERE `id`=?';
   const sqlQueryInsertShift =
-    "INSERT INTO `shift_karyawan`( `id_shift`, `id_lokasi`, `id_karyawan`, `start_date`, `end_date`) VALUES (?,?,?,?,?)";
+    'INSERT INTO `shift_karyawan`( `id_shift`, `id_lokasi`, `id_karyawan`, `start_date`, `end_date`) VALUES (?,?,?,?,?)';
   db.query(sqlQuery, [nama, id_lokasi, id], (err, results) => {
     if (err) {
-      console.error("Error update karyawan:", err);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error update karyawan:', err);
+      res.status(500).json({ error: 'Internal server error' });
       return;
     } else {
       for (let i = 0; i < shift_data.length; i++) {
-        if (shift_data[i].status && shift_data[i].status === "deleted") {
+        if (shift_data[i].status && shift_data[i].status === 'deleted') {
           db.query(
             sqlQueryDeleteShift,
             [shift_data[i].id_shift_karyawan],
             (err, results) => {
               if (err) {
-                console.error("Error delete shift:", err);
+                console.error('Error delete shift:', err);
               } else {
-                console.log("Success delete shift:", results);
+                console.log('Success delete shift:', results);
               }
             }
           );
-        } else if (shift_data[i].status && shift_data[i].status === "new") {
+        } else if (shift_data[i].status && shift_data[i].status === 'new') {
           db.query(
             sqlQueryInsertShift,
             [
@@ -687,9 +687,9 @@ app.put("/karyawan", async (req, res) => {
             ],
             (err, results) => {
               if (err) {
-                console.error("Error insert shift:", err);
+                console.error('Error insert shift:', err);
               } else {
-                console.log("Success insert shift:", results);
+                console.log('Success insert shift:', results);
               }
             }
           );
@@ -706,9 +706,9 @@ app.put("/karyawan", async (req, res) => {
             ],
             (err, results) => {
               if (err) {
-                console.error("Error update shift:", err);
+                console.error('Error update shift:', err);
               } else {
-                console.log("Success insert shift:", results);
+                console.log('Success insert shift:', results);
               }
             }
           );
@@ -719,7 +719,7 @@ app.put("/karyawan", async (req, res) => {
   });
 });
 
-app.get("/shiftkaryawan", (req, res) => {
+app.get('/shiftkaryawan', (req, res) => {
   let { id_karyawan, id_lokasi } = req.query;
   db.query(
     `SELECT 
@@ -732,8 +732,8 @@ app.get("/shiftkaryawan", (req, res) => {
     ORDER BY shift_karyawan.start_date;`,
     (err, results) => {
       if (err) {
-        console.error("Error fetching shiftkaryawan:", err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error('Error fetching shiftkaryawan:', err);
+        res.status(500).json({ error: 'Internal server error' });
         return;
       }
       res.json({ shiftkaryawan: results });
@@ -741,7 +741,7 @@ app.get("/shiftkaryawan", (req, res) => {
   );
 });
 
-app.get("/downloadjadwal", (req, res) => {
+app.get('/downloadjadwal', (req, res) => {
   let { month, id_lokasi } = req.query;
   db.query(
     `SELECT 
@@ -769,8 +769,8 @@ app.get("/downloadjadwal", (req, res) => {
       );`,
     (err, results) => {
       if (err) {
-        console.error("Error fetching jadwal:", err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error('Error fetching jadwal:', err);
+        res.status(500).json({ error: 'Internal server error' });
         return;
       }
       res.json({ jadwal: results });
@@ -778,44 +778,44 @@ app.get("/downloadjadwal", (req, res) => {
   );
 });
 
-app.get("/users", (req, res) => {
-  db.query("SELECT * FROM users", (err, results) => {
+app.get('/users', (req, res) => {
+  db.query('SELECT * FROM users', (err, results) => {
     if (err) {
-      console.error("Error fetching users:", err);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error fetching users:', err);
+      res.status(500).json({ error: 'Internal server error' });
       return;
     }
     res.json({ users: results });
   });
 });
 
-app.post("/users", async (req, res) => {
+app.post('/users', async (req, res) => {
   const { username, password, id_karyawan } = req.query;
   const sqlQuery = `INSERT INTO users (username,password,id_karyawan) VALUES (?,?,?)`;
   db.query(sqlQuery, [username, password, id_karyawan], (err, results) => {
     if (err) {
-      console.error("Error insert users:", err);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error insert users:', err);
+      res.status(500).json({ error: 'Internal server error' });
       return;
     }
     res.json({ users: results });
   });
 });
 
-app.put("/users", async (req, res) => {
+app.put('/users', async (req, res) => {
   const { id, username, password, id_karyawan } = req.query;
   const sqlQuery = `UPDATE users SET username=?, password=?, id_karyawan=? WHERE id=?`;
   db.query(sqlQuery, [username, password, id_karyawan, id], (err, results) => {
     if (err) {
-      console.error("Error update users:", err);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error update users:', err);
+      res.status(500).json({ error: 'Internal server error' });
       return;
     }
     res.json({ users: results });
   });
 });
 
-app.get("/lokasi", (req, res) => {
+app.get('/lokasi', (req, res) => {
   db.query(
     `SELECT 
         master_lokasi.id AS id, 
@@ -831,8 +831,8 @@ app.get("/lokasi", (req, res) => {
     LEFT JOIN master_shift ON master_lokasi.id = master_shift.id_lokasi ORDER BY master_lokasi.nama_lokasi, master_shift.jam_masuk;`,
     (err, results) => {
       if (err) {
-        console.error("Error fetching lokasi:", err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error('Error fetching lokasi:', err);
+        res.status(500).json({ error: 'Internal server error' });
         return;
       }
       res.json({ lokasi: results });
@@ -840,28 +840,28 @@ app.get("/lokasi", (req, res) => {
   );
 });
 
-app.get("/masterLokasi", (req, res) => {
-  db.query("SELECT * FROM master_lokasi", (err, results) => {
+app.get('/masterLokasi', (req, res) => {
+  db.query('SELECT * FROM master_lokasi', (err, results) => {
     if (err) {
-      console.error("Error fetching lokasi:", err);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error fetching lokasi:', err);
+      res.status(500).json({ error: 'Internal server error' });
       return;
     }
     res.json({ lokasi: results });
   });
 });
 
-app.post("/lokasi", async (req, res) => {
+app.post('/lokasi', async (req, res) => {
   const { nama_lokasi, toleransi, lat, long } = req.query;
   const sqlQueryLokasi =
-    "INSERT INTO master_lokasi (nama_lokasi,toleransi,lat,`long`) VALUES (?,?,?,?)";
+    'INSERT INTO master_lokasi (nama_lokasi,toleransi,lat,`long`) VALUES (?,?,?,?)';
   db.query(
     sqlQueryLokasi,
     [nama_lokasi, toleransi, lat, long],
     (err, results) => {
       if (err) {
-        console.error("Error insert lokasi:", err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error('Error insert lokasi:', err);
+        res.status(500).json({ error: 'Internal server error' });
         return;
       }
       res.json({ lokasi: results });
@@ -869,17 +869,17 @@ app.post("/lokasi", async (req, res) => {
   );
 });
 
-app.put("/lokasi", async (req, res) => {
+app.put('/lokasi', async (req, res) => {
   const { id, nama_lokasi, toleransi, lat, long } = req.query;
   const sqlQueryLokasi =
-    "UPDATE master_lokasi SET nama_lokasi=?, toleransi=?, lat=?,`long`=? WHERE id=?";
+    'UPDATE master_lokasi SET nama_lokasi=?, toleransi=?, lat=?,`long`=? WHERE id=?';
   db.query(
     sqlQueryLokasi,
     [nama_lokasi, toleransi, lat, long, id],
     (err, results) => {
       if (err) {
-        console.error("Error update lokasi:", err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error('Error update lokasi:', err);
+        res.status(500).json({ error: 'Internal server error' });
         return;
       }
       res.json({ lokasi: results });
@@ -887,13 +887,13 @@ app.put("/lokasi", async (req, res) => {
   );
 });
 
-app.get("/shift", (req, res) => {
+app.get('/shift', (req, res) => {
   db.query(
-    "SELECT master_shift.*,master_lokasi.nama_lokasi FROM master_shift LEFT JOIN master_lokasi ON master_shift.id_lokasi = master_lokasi.id ORDER BY master_lokasi.nama_lokasi, master_shift.shift;",
+    'SELECT master_shift.*,master_lokasi.nama_lokasi FROM master_shift LEFT JOIN master_lokasi ON master_shift.id_lokasi = master_lokasi.id ORDER BY master_lokasi.nama_lokasi, master_shift.shift;',
     (err, results) => {
       if (err) {
-        console.error("Error fetching shift:", err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error('Error fetching shift:', err);
+        res.status(500).json({ error: 'Internal server error' });
         return;
       }
       res.json({ shift: results });
@@ -901,14 +901,14 @@ app.get("/shift", (req, res) => {
   );
 });
 
-app.get("/shiftoption", (req, res) => {
+app.get('/shiftoption', (req, res) => {
   const { id_lokasi } = req.query;
   db.query(
     `SELECT * FROM master_shift WHERE id_lokasi=${id_lokasi};`,
     (err, results) => {
       if (err) {
-        console.error("Error fetching shift:", err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error('Error fetching shift:', err);
+        res.status(500).json({ error: 'Internal server error' });
         return;
       }
       res.json({ shift: results });
@@ -916,7 +916,7 @@ app.get("/shiftoption", (req, res) => {
   );
 });
 
-app.post("/shift", async (req, res) => {
+app.post('/shift', async (req, res) => {
   const { id_lokasi, shift, jam_masuk, jam_keluar } = req.query;
   const sqlQueryShift = `INSERT INTO master_shift (id_lokasi,shift,jam_masuk,jam_keluar) VALUES (?,?,?,?)`;
   db.query(
@@ -924,8 +924,8 @@ app.post("/shift", async (req, res) => {
     [id_lokasi, shift, jam_masuk, jam_keluar],
     (err, results) => {
       if (err) {
-        console.error("Error insert shift:", err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error('Error insert shift:', err);
+        res.status(500).json({ error: 'Internal server error' });
         return;
       }
       console.log(results);
@@ -934,7 +934,7 @@ app.post("/shift", async (req, res) => {
   );
 });
 
-app.put("/shift", async (req, res) => {
+app.put('/shift', async (req, res) => {
   const { id, id_lokasi, shift, jam_masuk, jam_keluar } = req.query;
   const sqlQueryShift = `UPDATE master_shift SET id_lokasi=?, shift=?, jam_masuk=?, jam_keluar=? WHERE id=?`;
   db.query(
@@ -942,8 +942,8 @@ app.put("/shift", async (req, res) => {
     [id_lokasi, shift, jam_masuk, jam_keluar, id],
     (err, results) => {
       if (err) {
-        console.error("Error update shift:", err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error('Error update shift:', err);
+        res.status(500).json({ error: 'Internal server error' });
         return;
       }
       console.log(results);
@@ -952,14 +952,14 @@ app.put("/shift", async (req, res) => {
   );
 });
 
-app.get("/login", (req, res) => {
+app.get('/login', (req, res) => {
   let { username, password } = req.query;
   db.query(
     `SELECT users.*,master_karyawan.id_lokasi FROM users LEFT JOIN master_karyawan ON users.id_karyawan = master_karyawan.id WHERE users.username='${username}' AND users.password='${password}'`,
     async (err, results) => {
       if (err) {
-        console.error("Error fetching lokasi:", err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error('Error fetching lokasi:', err);
+        res.status(500).json({ error: 'Internal server error' });
         return;
       }
 
@@ -991,12 +991,12 @@ async function getCurrentDateTime() {
   const now = new Date();
 
   const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0"); // Month is zero-based
-  const day = String(now.getDate()).padStart(2, "0");
+  const month = String(now.getMonth() + 1).padStart(2, '0'); // Month is zero-based
+  const day = String(now.getDate()).padStart(2, '0');
 
-  const hours = String(now.getHours()).padStart(2, "0");
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-  const seconds = String(now.getSeconds()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
 
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
@@ -1005,8 +1005,8 @@ async function getCurrentDate() {
   const now = new Date();
 
   const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0"); // Month is zero-based
-  const day = String(now.getDate()).padStart(2, "0");
+  const month = String(now.getMonth() + 1).padStart(2, '0'); // Month is zero-based
+  const day = String(now.getDate()).padStart(2, '0');
 
   return `${year}-${month}-${day}`;
 }
@@ -1016,12 +1016,12 @@ async function getIzintDateTime(date) {
 
   const getHour = new Date();
   const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0"); // Month is zero-based
-  const day = String(now.getDate()).padStart(2, "0");
+  const month = String(now.getMonth() + 1).padStart(2, '0'); // Month is zero-based
+  const day = String(now.getDate()).padStart(2, '0');
 
-  const hours = String(getHour.getHours()).padStart(2, "0");
-  const minutes = String(getHour.getMinutes()).padStart(2, "0");
-  const seconds = String(getHour.getSeconds()).padStart(2, "0");
+  const hours = String(getHour.getHours()).padStart(2, '0');
+  const minutes = String(getHour.getMinutes()).padStart(2, '0');
+  const seconds = String(getHour.getSeconds()).padStart(2, '0');
 
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
@@ -1032,7 +1032,7 @@ async function getLocation(id_lokasi) {
       `SELECT * FROM master_lokasi WHERE id=${id_lokasi}`,
       (err, results) => {
         if (err) {
-          console.error("Error fetching lokasi:", err);
+          console.error('Error fetching lokasi:', err);
           reject(err);
           return;
         }
@@ -1048,7 +1048,7 @@ async function getShift(id_lokasi, id_karyawan, dates) {
       `SELECT * FROM shift_karyawan WHERE id_lokasi=${id_lokasi} AND id_karyawan=${id_karyawan} AND '${dates}' BETWEEN start_date AND end_date`,
       (err, results) => {
         if (err) {
-          console.error("Error fetching lokasi:", err);
+          console.error('Error fetching lokasi:', err);
           reject(err);
           return;
         }
@@ -1066,7 +1066,7 @@ async function getShiftAbsen(id_lokasi, id_karyawan, status) {
     const oneHourBefore = new Date(now.getTime() - 60 * 60 * 1000);
 
     // Calculate one hour after now
-    let oneHourAfter = new Date(now.getTime() + 60 * 60 * 1000);
+    let oneHourAfter = new Date(now.getTime() + 90 * 60 * 1000);
     const hours = now.getHours();
     const minutes = now.getMinutes();
     const seconds = now.getSeconds();
@@ -1077,9 +1077,9 @@ async function getShiftAbsen(id_lokasi, id_karyawan, status) {
     }
     // Format the dates as HH:MM:SS
     const formatTime = (date) => {
-      const hours = date.getHours().toString().padStart(2, "0");
-      const minutes = date.getMinutes().toString().padStart(2, "0");
-      const seconds = date.getSeconds().toString().padStart(2, "0");
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      const seconds = date.getSeconds().toString().padStart(2, '0');
       return `${hours}:${minutes}:${seconds}`;
     };
 
@@ -1094,9 +1094,9 @@ async function getShiftAbsen(id_lokasi, id_karyawan, status) {
       yesterday.getMonth() + 1
     )
       .toString()
-      .padStart(2, "0")}-${yesterday.getDate().toString().padStart(2, "0")}`;
+      .padStart(2, '0')}-${yesterday.getDate().toString().padStart(2, '0')}`;
 
-    if (status === "Hadir" || status === "Sakit" || status === "Izin") {
+    if (status === 'Hadir' || status === 'Sakit' || status === 'Izin') {
       db.query(
         `SELECT 
         shift_karyawan.*,
@@ -1112,14 +1112,14 @@ async function getShiftAbsen(id_lokasi, id_karyawan, status) {
         ORDER BY shift_karyawan.start_date DESC LIMIT 1;`,
         (err, results) => {
           if (err) {
-            console.error("Error fetching lokasi:", err);
+            console.error('Error fetching lokasi:', err);
             reject(err);
             return;
           }
           resolve(results[0]?.id_shift);
         }
       );
-    } else if (status === "Pulang") {
+    } else if (status === 'Pulang') {
       db.query(
         `SELECT 
         shift_karyawan.*,
@@ -1135,7 +1135,7 @@ async function getShiftAbsen(id_lokasi, id_karyawan, status) {
         ORDER BY shift_karyawan.start_date DESC LIMIT 1;`,
         (err, results) => {
           if (err) {
-            console.error("Error fetching lokasi:", err);
+            console.error('Error fetching lokasi:', err);
             reject(err);
             return;
           }
@@ -1149,9 +1149,9 @@ async function getShiftAbsen(id_lokasi, id_karyawan, status) {
 async function getValidateTimeStamp(id_shift) {
   return new Promise((resolve, reject) => {
     const now = new Date();
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const seconds = String(now.getSeconds()).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
     const formattedDateTime = `${hours}:${minutes}:${seconds}`;
 
     const sql_query = `
@@ -1165,7 +1165,7 @@ async function getValidateTimeStamp(id_shift) {
 
     db.query(sql_query, (err, results) => {
       if (err) {
-        console.error("Error fetching lokasi:", err);
+        console.error('Error fetching lokasi:', err);
         reject(err);
         return;
       }
@@ -1202,7 +1202,7 @@ async function getAbsensi(id_karyawan) {
       return [];
     }
   } catch (err) {
-    console.error("Error in getAbsensi:", err);
+    console.error('Error in getAbsensi:', err);
     return [];
   }
 }
@@ -1211,14 +1211,14 @@ async function getAbsensiBefore(id_karyawan) {
   try {
     const currentDate = new Date();
     const year = currentDate.getFullYear();
-    const month = ("0" + (currentDate.getMonth() + 1)).slice(-2);
-    const day = ("0" + (currentDate.getDate() - 1)).slice(-2);
+    const month = ('0' + (currentDate.getMonth() + 1)).slice(-2);
+    const day = ('0' + (currentDate.getDate() - 1)).slice(-2);
     const formattedDate = `${year}-${month}-${day}`;
 
     const results = await fetchAbsensi(id_karyawan);
     return results;
   } catch (err) {
-    console.error("Error in getAbsensiBefore:", err);
+    console.error('Error in getAbsensiBefore:', err);
     return [];
   }
 }
@@ -1235,7 +1235,7 @@ async function fetchAbsensi(id_karyawan) {
         LIMIT 1;`,
       (err, results) => {
         if (err) {
-          console.error("Error fetching absensi:", err);
+          console.error('Error fetching absensi:', err);
           reject(err);
           return;
         }
@@ -1247,7 +1247,7 @@ async function fetchAbsensi(id_karyawan) {
 
 function getDistanceBetweenPoints(lat1, lon1, lat2, lon2) {
   if (isNaN(lat1) || isNaN(lon1) || isNaN(lat2) || isNaN(lon2)) {
-    throw new Error("Invalid input. Latitude and Longitude must be numbers.");
+    throw new Error('Invalid input. Latitude and Longitude must be numbers.');
   }
 
   const deg2rad = (angle) => {
@@ -1291,4 +1291,4 @@ function number_format(value, precision) {
 // Listen
 
 app.listen(port);
-console.log("Listening on localhost:" + port);
+console.log('Listening on localhost:' + port);
