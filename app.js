@@ -340,7 +340,7 @@ app.post('/absensi', upload.single('foto'), async (req, res) => {
     let id_shift = 0;
 
     if (status !== 'Backup Hadir' && status !== 'Backup Pulang') {
-      id_shift = await getShiftAbsen(id_lokasi, id_karyawan, status);
+      id_shift = await getShiftAbsen(now, id_lokasi, id_karyawan, status);
     }
 
     // Check if the distance is within 100 meters
@@ -1058,88 +1058,44 @@ async function getShift(id_lokasi, id_karyawan, dates) {
   });
 }
 
-async function getShiftAbsen(id_lokasi, id_karyawan, status) {
+async function getShiftAbsen(time, id_lokasi, id_karyawan, status) {
   return new Promise((resolve, reject) => {
-    const now = new Date();
-
-    // Calculate one hour before now
-    const oneHourBefore = new Date(now.getTime() - 60 * 60 * 1000);
-
-    // Calculate one hour after now
-    let oneHourAfter = new Date(now.getTime() + 90 * 60 * 1000);
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const seconds = now.getSeconds();
-    if (hours === 23 && oneHourAfter.getHours() === 0) {
-      oneHourAfter = `${hours}:${minutes}:${seconds}`;
-    } else {
-      oneHourAfter = `${oneHourAfter.getHours()}:${minutes}:${seconds}`;
-    }
-    // Format the dates as HH:MM:SS
-    const formatTime = (date) => {
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-      const seconds = date.getSeconds().toString().padStart(2, '0');
-      return `${hours}:${minutes}:${seconds}`;
-    };
-
-    const currentDate = new Date();
-
-    // Subtract one day
-    const yesterday = new Date(currentDate);
-    yesterday.setDate(currentDate.getDate() - 1);
-
-    // Format the date as YYYY-MM-DD
-    const formattedYesterday = `${yesterday.getFullYear()}-${(
-      yesterday.getMonth() + 1
-    )
-      .toString()
-      .padStart(2, '0')}-${yesterday.getDate().toString().padStart(2, '0')}`;
-
     if (status === 'Hadir' || status === 'Sakit' || status === 'Izin') {
       db.query(
         `SELECT 
-        shift_karyawan.*,
-        master_shift.jam_masuk,
-        master_shift.jam_keluar
-        FROM shift_karyawan 
-        LEFT JOIN master_shift ON shift_karyawan.id_shift = master_shift.id
-        WHERE 
-          shift_karyawan.id_lokasi=${id_lokasi} AND shift_karyawan.id_karyawan=${id_karyawan} AND
-            master_shift.jam_masuk BETWEEN '${formatTime(
-              oneHourBefore
-            )}' AND '${oneHourAfter}' AND shift_karyawan.end_date >= '${formattedYesterday}'
-        ORDER BY shift_karyawan.start_date DESC LIMIT 1;`,
+        master_shift.id 
+        FROM master_shift
+        LEFT JOIN shift_karyawan ON master_shift.id = shift_karyawan.id_shift
+        WHERE shift_karyawan.id_karyawan = ${id_karyawan} AND master_shift.jam_masuk BETWEEN 
+          TIME('${time}') - INTERVAL 2.5 HOUR AND 
+            TIME('${time}') + INTERVAL 2 HOUR  
+            AND master_shift.id_lokasi = ${id_lokasi} ORDER BY master_shift.jam_masuk ASC LIMIT 1;`,
         (err, results) => {
           if (err) {
             console.error('Error fetching lokasi:', err);
             reject(err);
             return;
           }
-          resolve(results[0]?.id_shift);
+          resolve(results[0]?.id);
         }
       );
     } else if (status === 'Pulang') {
       db.query(
         `SELECT 
-        shift_karyawan.*,
-        master_shift.jam_masuk,
-        master_shift.jam_keluar
-        FROM shift_karyawan 
-        LEFT JOIN master_shift ON shift_karyawan.id_shift = master_shift.id
-        WHERE 
-          shift_karyawan.id_lokasi=${id_lokasi} AND shift_karyawan.id_karyawan=${id_karyawan} AND 
-          master_shift.jam_keluar BETWEEN '${formatTime(
-            oneHourBefore
-          )}' AND '${oneHourAfter}' AND shift_karyawan.end_date >= '${formattedYesterday}'
-        ORDER BY shift_karyawan.start_date DESC LIMIT 1;`,
+        master_shift.id 
+        FROM master_shift
+        LEFT JOIN shift_karyawan ON master_shift.id = shift_karyawan.id_shift
+        WHERE shift_karyawan.id_karyawan = ${id_karyawan} AND master_shift.jam_keluar BETWEEN 
+          TIME('${time}') - INTERVAL 2.5 HOUR AND 
+            TIME('${time}') + INTERVAL 2 HOUR  
+            AND master_shift.id_lokasi = ${id_lokasi} ORDER BY master_shift.jam_keluar ASC LIMIT 1;`,
         (err, results) => {
           if (err) {
             console.error('Error fetching lokasi:', err);
             reject(err);
             return;
           }
-          resolve(results[0]?.id_shift);
+          resolve(results[0]?.id);
         }
       );
     }
