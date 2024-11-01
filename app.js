@@ -9,7 +9,7 @@ const path = require('path');
 var app = express();
 var port = process.env.PORT || 3001;
 app.timeout = 600000;
-app.use(cors());
+app.use(cors({ origin: 'http://195.35.36.220:3000' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const storage = multer.memoryStorage();
@@ -648,8 +648,8 @@ app.post('/karyawan', async (req, res) => {
 });
 
 app.put('/karyawan', async (req, res) => {
-  const { id, nama, id_lokasi, shift } = req.query;
-  const shift_data = JSON.parse(shift);
+  const { id, nama, id_lokasi, shift } = req.body;
+  const shift_data = shift;
   const sqlQuery = 'UPDATE master_karyawan SET nama=?, id_lokasi=? WHERE id=?';
   const sqlQueryShift =
     'UPDATE `shift_karyawan` SET `id_shift`=?, `id_lokasi`=?, `id_karyawan`=?, `start_date`=?, `end_date`=? WHERE `id`=?';
